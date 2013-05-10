@@ -3,20 +3,20 @@
  * Copyright (c) 2003 Michael Niedermayer
  * Copyright (c) 2006 Konstantin Shishkov
  *
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
@@ -357,7 +357,7 @@ static int encode_picture_ls(AVCodecContext *avctx, unsigned char *buf, int buf_
             put_bits(&pb, 8, v);
         }
     }
-    align_put_bits(&pb);
+    avpriv_align_put_bits(&pb);
     av_free(buf2);
 
     /* End of image */
@@ -383,13 +383,12 @@ static av_cold int encode_init_ls(AVCodecContext *ctx) {
 }
 
 AVCodec ff_jpegls_encoder = { //FIXME avoid MPV_* lossless JPEG should not need them
-    "jpegls",
-    AVMEDIA_TYPE_VIDEO,
-    CODEC_ID_JPEGLS,
-    sizeof(JpeglsContext),
-    encode_init_ls,
-    encode_picture_ls,
-    NULL,
-    .pix_fmts= (const enum PixelFormat[]){PIX_FMT_BGR24, PIX_FMT_RGB24, PIX_FMT_GRAY8, PIX_FMT_GRAY16, PIX_FMT_NONE},
-    .long_name= NULL_IF_CONFIG_SMALL("JPEG-LS"),
+    .name           = "jpegls",
+    .type           = AVMEDIA_TYPE_VIDEO,
+    .id             = CODEC_ID_JPEGLS,
+    .priv_data_size = sizeof(JpeglsContext),
+    .init           = encode_init_ls,
+    .encode         = encode_picture_ls,
+    .pix_fmts       = (const enum PixelFormat[]){PIX_FMT_BGR24, PIX_FMT_RGB24, PIX_FMT_GRAY8, PIX_FMT_GRAY16, PIX_FMT_NONE},
+    .long_name      = NULL_IF_CONFIG_SMALL("JPEG-LS"),
 };

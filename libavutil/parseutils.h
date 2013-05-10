@@ -1,23 +1,25 @@
 /*
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef AVUTIL_PARSEUTILS_H
 #define AVUTIL_PARSEUTILS_H
+
+#include <time.h>
 
 #include "rational.h"
 
@@ -73,7 +75,7 @@ int av_parse_color(uint8_t *rgba_color, const char *color_string, int slen,
                    void *log_ctx);
 
 /**
- * Parses timestr and returns in *time a corresponding number of
+ * Parse timestr and return in *time a corresponding number of
  * microseconds.
  *
  * @param timeval puts here the number of microseconds corresponding
@@ -83,7 +85,7 @@ int av_parse_color(uint8_t *rgba_color, const char *color_string, int slen,
  * January, 1970 up to the time of the parsed date.  If timestr cannot
  * be successfully parsed, set *time to INT64_MIN.
 
- * @param datestr a string representing a date or a duration.
+ * @param timestr a string representing a date or a duration.
  * - If a date the syntax is:
  * @code
  * [{YYYY-MM-DD|YYYYMMDD}[T|t| ]]{{HH[:MM[:SS[.m...]]]}|{HH[MM[SS[.m...]]]}}[Z]
@@ -113,5 +115,10 @@ int av_parse_time(int64_t *timeval, const char *timestr, int duration);
  * Return 1 if found.
  */
 int av_find_info_tag(char *arg, int arg_size, const char *tag1, const char *info);
+
+/**
+ * Convert the decomposed UTC time in tm to a time_t value.
+ */
+time_t av_timegm(struct tm *tm);
 
 #endif /* AVUTIL_PARSEUTILS_H */

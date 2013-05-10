@@ -2,24 +2,27 @@
  * GXF muxer.
  * Copyright (c) 2006 SmartJog S.A., Baptiste Coudurier <baptiste dot coudurier at smartjog dot com>
  *
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
+#include "libavutil/intfloat.h"
+#include "libavutil/mathematics.h"
 #include "avformat.h"
+#include "internal.h"
 #include "gxf.h"
 #include "riff.h"
 #include "audiointerleave.h"
@@ -392,9 +395,20 @@ static int gxf_write_umf_material_description(AVFormatContext *s)
     GXFContext *gxf = s->priv_data;
     AVIOContext *pb = s->pb;
     int timecode_base = gxf->time_base.den == 60000 ? 60 : 50;
+    int64_t timestamp = 0;
+    AVDictionaryEntry *t;
+    uint32_t timecode;
+
+#if FF_API_TIMESTAMP
+    if (s->timestamp)
+        timestamp = s->timestamp;
+    else
+#endif
+    if (t = av_dict_get(s->metadata, "creation_time", NULL, 0))
+        timestamp = ff_iso8601_to_unix_time(t->value);
 
     // XXX drop frame
-    uint32_t timecode =
+    timecode =
         gxf->nb_fields / (timecode_base * 3600) % 24 << 24 | // hours
         gxf->nb_fields / (timecode_base * 60) % 60   << 16 | // minutes
         gxf->nb_fields /  timecode_base % 60         <<  8 | // seconds
@@ -407,8 +421,8 @@ static int gxf_write_umf_material_description(AVFormatContext *s)
     avio_wl32(pb, gxf->nb_fields); /* mark out */
     avio_wl32(pb, 0); /* timecode mark in */
     avio_wl32(pb, timecode); /* timecode mark out */
-    avio_wl64(pb, s->timestamp); /* modification time */
-    avio_wl64(pb, s->timestamp); /* creation time */
+    avio_wl64(pb, timestamp); /* modification time */
+    avio_wl64(pb, timestamp); /* creation time */
     avio_wl16(pb, 0); /* reserved */
     avio_wl16(pb, 0); /* reserved */
     avio_wl16(pb, gxf->audio_tracks);
@@ -506,8 +520,8 @@ static int gxf_write_umf_media_dv(AVIOContext *pb, GXFStreamContext *sc)
 
 static int gxf_write_umf_media_audio(AVIOContext *pb, GXFStreamContext *sc)
 {
-    avio_wl64(pb, av_dbl2int(1)); /* sound level to begin to */
-    avio_wl64(pb, av_dbl2int(1)); /* sound level to begin to */
+    avio_wl64(pb, av_double2int(1)); /* sound level to begin to */
+    avio_wl64(pb, av_double2int(1)); /* sound level to begin to */
     avio_wl32(pb, 0); /* number of fields over which to ramp up sound level */
     avio_wl32(pb, 0); /* number of fields over which to ramp down sound level */
     avio_wl32(pb, 0); /* reserved */
@@ -663,7 +677,7 @@ static int gxf_write_header(AVFormatContext *s)
             }
             sc->track_type = 2;
             sc->sample_rate = st->codec->sample_rate;
-            av_set_pts_info(st, 64, 1, sc->sample_rate);
+            avpriv_set_pts_info(st, 64, 1, sc->sample_rate);
             sc->sample_size = 16;
             sc->frame_rate_index = -2;
             sc->lines_index = -2;
@@ -693,7 +707,7 @@ static int gxf_write_header(AVFormatContext *s)
                        "gxf muxer only accepts PAL or NTSC resolutions currently\n");
                 return -1;
             }
-            av_set_pts_info(st, 64, gxf->time_base.num, gxf->time_base.den);
+            avpriv_set_pts_info(st, 64, gxf->time_base.num, gxf->time_base.den);
             if (gxf_find_lines_index(st) < 0)
                 sc->lines_index = -1;
             sc->sample_size = st->codec->bit_rate;
@@ -931,17 +945,14 @@ static int gxf_interleave_packet(AVFormatContext *s, AVPacket *out, AVPacket *pk
 }
 
 AVOutputFormat ff_gxf_muxer = {
-    "gxf",
-    NULL_IF_CONFIG_SMALL("GXF format"),
-    NULL,
-    "gxf",
-    sizeof(GXFContext),
-    CODEC_ID_PCM_S16LE,
-    CODEC_ID_MPEG2VIDEO,
-    gxf_write_header,
-    gxf_write_packet,
-    gxf_write_trailer,
-    0,
-    NULL,
-    gxf_interleave_packet,
+    .name              = "gxf",
+    .long_name         = NULL_IF_CONFIG_SMALL("GXF format"),
+    .extensions        = "gxf",
+    .priv_data_size    = sizeof(GXFContext),
+    .audio_codec       = CODEC_ID_PCM_S16LE,
+    .video_codec       = CODEC_ID_MPEG2VIDEO,
+    .write_header      = gxf_write_header,
+    .write_packet      = gxf_write_packet,
+    .write_trailer     = gxf_write_trailer,
+    .interleave_packet = gxf_interleave_packet,
 };

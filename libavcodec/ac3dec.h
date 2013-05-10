@@ -2,20 +2,20 @@
  * Common code between the AC-3 and E-AC-3 decoders
  * Copyright (c) 2007 Bartlomiej Wolowiec <bartek.wolowiec@gmail.com>
  *
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
@@ -66,7 +66,9 @@
 #define AC3_FRAME_BUFFER_SIZE 32768
 
 typedef struct {
+    AVClass        *class;                  ///< class for AVOptions
     AVCodecContext *avctx;                  ///< parent context
+    AVFrame frame;                          ///< AVFrame for decoded output
     GetBitContext gbc;                      ///< bitstream reader
 
 ///@name Bit stream information
@@ -143,6 +145,7 @@ typedef struct {
 
 ///@name Dynamic range
     float dynamic_range[2];                 ///< dynamic range
+    float drc_scale;                        ///< percentage of dynamic range compression to be applied
 ///@}
 
 ///@name Bandwidth

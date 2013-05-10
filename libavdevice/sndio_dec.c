@@ -2,20 +2,20 @@
  * sndio play and grab interface
  * Copyright (c) 2010 Jacob Meuser
  *
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
@@ -23,6 +23,7 @@
 #include <sndio.h>
 
 #include "libavformat/avformat.h"
+#include "libavformat/internal.h"
 #include "libavutil/opt.h"
 
 #include "sndio_common.h"
@@ -34,14 +35,7 @@ static av_cold int audio_read_header(AVFormatContext *s1,
     AVStream *st;
     int ret;
 
-#if FF_API_FORMAT_PARAMETERS
-    if (ap->sample_rate > 0)
-        s->sample_rate = ap->sample_rate;
-    if (ap->channels > 0)
-        s->channels = ap->channels;
-#endif
-
-    st = av_new_stream(s1, 0);
+    st = avformat_new_stream(s1, NULL);
     if (!st)
         return AVERROR(ENOMEM);
 
@@ -55,7 +49,7 @@ static av_cold int audio_read_header(AVFormatContext *s1,
     st->codec->sample_rate = s->sample_rate;
     st->codec->channels    = s->channels;
 
-    av_set_pts_info(st, 64, 1, 1000000);  /* 64 bits pts in us */
+    avpriv_set_pts_info(st, 64, 1, 1000000);  /* 64 bits pts in us */
 
     return 0;
 }
@@ -100,8 +94,8 @@ static av_cold int audio_read_close(AVFormatContext *s1)
 }
 
 static const AVOption options[] = {
-    { "sample_rate", "", offsetof(SndioData, sample_rate), FF_OPT_TYPE_INT, {.dbl = 48000}, 1, INT_MAX, AV_OPT_FLAG_DECODING_PARAM },
-    { "channels",    "", offsetof(SndioData, channels),    FF_OPT_TYPE_INT, {.dbl = 2},     1, INT_MAX, AV_OPT_FLAG_DECODING_PARAM },
+    { "sample_rate", "", offsetof(SndioData, sample_rate), AV_OPT_TYPE_INT, {.dbl = 48000}, 1, INT_MAX, AV_OPT_FLAG_DECODING_PARAM },
+    { "channels",    "", offsetof(SndioData, channels),    AV_OPT_TYPE_INT, {.dbl = 2},     1, INT_MAX, AV_OPT_FLAG_DECODING_PARAM },
     { NULL },
 };
 

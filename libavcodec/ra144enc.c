@@ -2,20 +2,20 @@
  * Real Audio 1.0 (14.4K) encoder
  * Copyright (c) 2010 Francesco Lavra <francescolavra@interfree.it>
  *
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
@@ -214,7 +214,7 @@ static int adaptive_cb_search(const int16_t *adapt_cb, float *work,
     ff_celp_lp_synthesis_filterf(work, coefs, exc, BLOCKSIZE, LPC_ORDER);
     for (i = 0; i < BLOCKSIZE; i++)
         data[i] -= best_gain * work[i];
-    return (best_vect - BLOCKSIZE / 2 + 1);
+    return best_vect - BLOCKSIZE / 2 + 1;
 }
 
 
@@ -477,7 +477,10 @@ static int ra144_encode_frame(AVCodecContext *avctx, uint8_t *frame,
          * The filter is unstable: use the coefficients of the previous frame.
          */
         ff_int_to_int16(block_coefs[NBLOCKS - 1], ractx->lpc_coef[1]);
-        ff_eval_refl(lpc_refl, block_coefs[NBLOCKS - 1], avctx);
+        if (ff_eval_refl(lpc_refl, block_coefs[NBLOCKS - 1], avctx)) {
+            /* the filter is still unstable. set reflection coeffs to zero. */
+            memset(lpc_refl, 0, sizeof(lpc_refl));
+        }
     }
     init_put_bits(&pb, frame, buf_size);
     for (i = 0; i < LPC_ORDER; i++) {
@@ -508,14 +511,15 @@ static int ra144_encode_frame(AVCodecContext *avctx, uint8_t *frame,
 }
 
 
-AVCodec ff_ra_144_encoder =
-{
-    "real_144",
-    AVMEDIA_TYPE_AUDIO,
-    CODEC_ID_RA_144,
-    sizeof(RA144Context),
-    ra144_encode_init,
-    ra144_encode_frame,
-    ra144_encode_close,
-    .long_name = NULL_IF_CONFIG_SMALL("RealAudio 1.0 (14.4K) encoder"),
+AVCodec ff_ra_144_encoder = {
+    .name           = "real_144",
+    .type           = AVMEDIA_TYPE_AUDIO,
+    .id             = CODEC_ID_RA_144,
+    .priv_data_size = sizeof(RA144Context),
+    .init           = ra144_encode_init,
+    .encode         = ra144_encode_frame,
+    .close          = ra144_encode_close,
+    .sample_fmts    = (const enum AVSampleFormat[]){ AV_SAMPLE_FMT_S16,
+                                                     AV_SAMPLE_FMT_NONE },
+    .long_name      = NULL_IF_CONFIG_SMALL("RealAudio 1.0 (14.4K) encoder"),
 };

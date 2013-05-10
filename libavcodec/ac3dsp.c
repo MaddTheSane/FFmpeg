@@ -2,20 +2,20 @@
  * AC-3 DSP utils
  * Copyright (c) 2011 Justin Ruggles
  *
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
@@ -108,7 +108,7 @@ static void ac3_bit_alloc_calc_bap_c(int16_t *mask, int16_t *psd,
                                      int snr_offset, int floor,
                                      const uint8_t *bap_tab, uint8_t *bap)
 {
-    int bin, band;
+    int bin, band, band_end;
 
     /* special case, if snr offset is -960, set all bap's to zero */
     if (snr_offset == -960) {
@@ -120,12 +120,14 @@ static void ac3_bit_alloc_calc_bap_c(int16_t *mask, int16_t *psd,
     band = ff_ac3_bin_to_band_tab[start];
     do {
         int m = (FFMAX(mask[band] - snr_offset - floor, 0) & 0x1FE0) + floor;
-        int band_end = FFMIN(ff_ac3_band_start_tab[band+1], end);
+        band_end = ff_ac3_band_start_tab[++band];
+        band_end = FFMIN(band_end, end);
+
         for (; bin < band_end; bin++) {
             int address = av_clip((psd[bin] - m) >> 5, 0, 63);
             bap[bin] = bap_tab[address];
         }
-    } while (end > ff_ac3_band_start_tab[band++]);
+    } while (end > band_end);
 }
 
 static void ac3_update_bap_counts_c(uint16_t mant_cnt[16], uint8_t *bap,
@@ -164,21 +166,8 @@ static void ac3_extract_exponents_c(uint8_t *exp, int32_t *coef, int nb_coefs)
     int i;
 
     for (i = 0; i < nb_coefs; i++) {
-        int e;
         int v = abs(coef[i]);
-        if (v == 0)
-            e = 24;
-        else {
-            e = 23 - av_log2(v);
-            if (e >= 24) {
-                e = 24;
-                coef[i] = 0;
-            } else if (e < 0) {
-                e = 0;
-                coef[i] = av_clip(coef[i], -16777215, 16777215);
-            }
-        }
-        exp[i] = e;
+        exp[i] = v ? 23 - av_log2(v) : 24;
     }
 }
 

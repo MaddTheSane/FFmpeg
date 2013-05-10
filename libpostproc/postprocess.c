@@ -3,20 +3,20 @@
  *
  * AltiVec optimizations (C) 2004 Romain Dolbeau <romain@dolbeau.org>
  *
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or modify
+ * Libav is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
  * (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with FFmpeg; if not, write to the Free Software
+ * along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
@@ -95,13 +95,13 @@ unsigned postproc_version(void)
 
 const char *postproc_configuration(void)
 {
-    return FFMPEG_CONFIGURATION;
+    return LIBAV_CONFIGURATION;
 }
 
 const char *postproc_license(void)
 {
 #define LICENSE_PREFIX "libpostproc license: "
-    return LICENSE_PREFIX FFMPEG_LICENSE + sizeof(LICENSE_PREFIX) - 1;
+    return LICENSE_PREFIX LIBAV_LICENSE + sizeof(LICENSE_PREFIX) - 1;
 }
 
 #if HAVE_ALTIVEC_H
@@ -246,7 +246,6 @@ static inline int isVertDC_C(uint8_t src[], int stride, PPContext *c)
 static inline int isHorizMinMaxOk_C(uint8_t src[], int stride, int QP)
 {
     int i;
-#if 1
     for(i=0; i<2; i++){
         if((unsigned)(src[0] - src[5] + 2*QP) > 4*QP) return 0;
         src += stride;
@@ -257,19 +256,11 @@ static inline int isHorizMinMaxOk_C(uint8_t src[], int stride, int QP)
         if((unsigned)(src[6] - src[3] + 2*QP) > 4*QP) return 0;
         src += stride;
     }
-#else
-    for(i=0; i<8; i++){
-        if((unsigned)(src[0] - src[7] + 2*QP) > 4*QP) return 0;
-        src += stride;
-    }
-#endif
     return 1;
 }
 
 static inline int isVertMinMaxOk_C(uint8_t src[], int stride, int QP)
 {
-#if 1
-#if 1
     int x;
     src+= stride*4;
     for(x=0; x<BLOCK_SIZE; x+=4){
@@ -278,30 +269,7 @@ static inline int isVertMinMaxOk_C(uint8_t src[], int stride, int QP)
         if((unsigned)(src[2+x + 4*stride] - src[2+x + 1*stride] + 2*QP) > 4*QP) return 0;
         if((unsigned)(src[3+x + 6*stride] - src[3+x + 3*stride] + 2*QP) > 4*QP) return 0;
     }
-#else
-    int x;
-    src+= stride*3;
-    for(x=0; x<BLOCK_SIZE; x++){
-        if((unsigned)(src[x + stride] - src[x + (stride<<3)] + 2*QP) > 4*QP) return 0;
-    }
-#endif
     return 1;
-#else
-    int x;
-    src+= stride*4;
-    for(x=0; x<BLOCK_SIZE; x++){
-        int min=255;
-        int max=0;
-        int y;
-        for(y=0; y<8; y++){
-            int v= src[x + y*stride];
-            if(v>max) max=v;
-            if(v<min) min=v;
-        }
-        if(max-min > 2*QP) return 0;
-    }
-    return 1;
-#endif
 }
 
 static inline int horizClassify_C(uint8_t src[], int stride, PPContext *c)
@@ -676,7 +644,7 @@ static inline void postProcess(const uint8_t src[], int srcStride, uint8_t dst[]
 #endif
             postProcess_C(src, srcStride, dst, dstStride, width, height, QPs, QPStride, isColor, c);
 #endif
-#else //CONFIG_RUNTIME_CPUDETECT
+#else /* CONFIG_RUNTIME_CPUDETECT */
 #if   HAVE_MMX2
             postProcess_MMX2(src, srcStride, dst, dstStride, width, height, QPs, QPStride, isColor, c);
 #elif HAVE_AMD3DNOW
@@ -688,7 +656,7 @@ static inline void postProcess(const uint8_t src[], int srcStride, uint8_t dst[]
 #else
             postProcess_C(src, srcStride, dst, dstStride, width, height, QPs, QPStride, isColor, c);
 #endif
-#endif //!CONFIG_RUNTIME_CPUDETECT
+#endif /* !CONFIG_RUNTIME_CPUDETECT */
 }
 
 //static void postProcess(uint8_t src[], int srcStride, uint8_t dst[], int dstStride, int width, int height,
@@ -696,11 +664,7 @@ static inline void postProcess(const uint8_t src[], int srcStride, uint8_t dst[]
 
 /* -pp Command line Help
 */
-#if LIBPOSTPROC_VERSION_INT < (52<<16)
-const char *const pp_help=
-#else
 const char pp_help[] =
-#endif
 "Available postprocessing filters:\n"
 "Filters                        Options\n"
 "short  long name       short   long option     Description\n"
@@ -819,7 +783,8 @@ pp_mode *pp_get_mode_by_name_and_quality(const char *name, int quality)
                 int plen;
                 int spaceLeft;
 
-                p--, *p=',';
+                if(p==NULL) p= temp, *p=0;      //last filter
+                else p--, *p=',';               //not last filter
 
                 plen= strlen(p);
                 spaceLeft= p - temp + plen;
@@ -944,7 +909,7 @@ static void reallocBuffers(PPContext *c, int width, int height, int stride, int 
             c->yHistogram[i]= width*height/64*15/256;
 
     for(i=0; i<3; i++){
-        //Note: The +17*1024 is just there so i do not have to worry about r/w over the end.
+        //Note: The +17*1024 is just there so I do not have to worry about r/w over the end.
         reallocAlign((void **)&c->tempBlurred[i], 8, stride*mbHeight*16 + 17*1024);
         reallocAlign((void **)&c->tempBlurredPast[i], 8, 256*((height+7)&(~7))/2 + 17*1024);//FIXME size
     }

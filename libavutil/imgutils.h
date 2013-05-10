@@ -1,18 +1,18 @@
 /*
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
@@ -22,6 +22,9 @@
 /**
  * @file
  * misc image utilities
+ *
+ * @addtogroup lavu_picture
+ * @{
  */
 
 #include "avutil.h"
@@ -106,8 +109,8 @@ void av_image_copy_plane(uint8_t       *dst, int dst_linesize,
 /**
  * Copy image in src_data to dst_data.
  *
- * @param dst_linesize linesizes for the image in dst_data
- * @param src_linesize linesizes for the image in src_data
+ * @param dst_linesizes linesizes for the image in dst_data
+ * @param src_linesizes linesizes for the image in src_data
  */
 void av_image_copy(uint8_t *dst_data[4], int dst_linesizes[4],
                    const uint8_t *src_data[4], const int src_linesizes[4],
@@ -126,5 +129,10 @@ void av_image_copy(uint8_t *dst_data[4], int dst_linesizes[4],
 int av_image_check_size(unsigned int w, unsigned int h, int log_offset, void *log_ctx);
 
 int ff_set_systematic_pal2(uint32_t pal[256], enum PixelFormat pix_fmt);
+
+/**
+ * @}
+ */
+
 
 #endif /* AVUTIL_IMGUTILS_H */

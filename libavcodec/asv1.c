@@ -2,20 +2,20 @@
  * ASUS V1/V2 codec
  * Copyright (c) 2003 Michael Niedermayer
  *
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
@@ -497,7 +497,7 @@ static int encode_frame(AVCodecContext *avctx, unsigned char *buf, int buf_size,
     }
     emms_c();
 
-    align_put_bits(&a->pb);
+    avpriv_align_put_bits(&a->pb);
     while(put_bits_count(&a->pb)&31)
         put_bits(&a->pb, 8, 0);
 
@@ -603,39 +603,37 @@ static av_cold int decode_end(AVCodecContext *avctx){
 }
 
 AVCodec ff_asv1_decoder = {
-    "asv1",
-    AVMEDIA_TYPE_VIDEO,
-    CODEC_ID_ASV1,
-    sizeof(ASV1Context),
-    decode_init,
-    NULL,
-    decode_end,
-    decode_frame,
-    CODEC_CAP_DR1,
+    .name           = "asv1",
+    .type           = AVMEDIA_TYPE_VIDEO,
+    .id             = CODEC_ID_ASV1,
+    .priv_data_size = sizeof(ASV1Context),
+    .init           = decode_init,
+    .close          = decode_end,
+    .decode         = decode_frame,
+    .capabilities   = CODEC_CAP_DR1,
     .long_name= NULL_IF_CONFIG_SMALL("ASUS V1"),
 };
 
 AVCodec ff_asv2_decoder = {
-    "asv2",
-    AVMEDIA_TYPE_VIDEO,
-    CODEC_ID_ASV2,
-    sizeof(ASV1Context),
-    decode_init,
-    NULL,
-    decode_end,
-    decode_frame,
-    CODEC_CAP_DR1,
+    .name           = "asv2",
+    .type           = AVMEDIA_TYPE_VIDEO,
+    .id             = CODEC_ID_ASV2,
+    .priv_data_size = sizeof(ASV1Context),
+    .init           = decode_init,
+    .close          = decode_end,
+    .decode         = decode_frame,
+    .capabilities   = CODEC_CAP_DR1,
     .long_name= NULL_IF_CONFIG_SMALL("ASUS V2"),
 };
 
 #if CONFIG_ASV1_ENCODER
 AVCodec ff_asv1_encoder = {
-    "asv1",
-    AVMEDIA_TYPE_VIDEO,
-    CODEC_ID_ASV1,
-    sizeof(ASV1Context),
-    encode_init,
-    encode_frame,
+    .name           = "asv1",
+    .type           = AVMEDIA_TYPE_VIDEO,
+    .id             = CODEC_ID_ASV1,
+    .priv_data_size = sizeof(ASV1Context),
+    .init           = encode_init,
+    .encode         = encode_frame,
     //encode_end,
     .pix_fmts= (const enum PixelFormat[]){PIX_FMT_YUV420P, PIX_FMT_NONE},
     .long_name= NULL_IF_CONFIG_SMALL("ASUS V1"),
@@ -644,12 +642,12 @@ AVCodec ff_asv1_encoder = {
 
 #if CONFIG_ASV2_ENCODER
 AVCodec ff_asv2_encoder = {
-    "asv2",
-    AVMEDIA_TYPE_VIDEO,
-    CODEC_ID_ASV2,
-    sizeof(ASV1Context),
-    encode_init,
-    encode_frame,
+    .name           = "asv2",
+    .type           = AVMEDIA_TYPE_VIDEO,
+    .id             = CODEC_ID_ASV2,
+    .priv_data_size = sizeof(ASV1Context),
+    .init           = encode_init,
+    .encode         = encode_frame,
     //encode_end,
     .pix_fmts= (const enum PixelFormat[]){PIX_FMT_YUV420P, PIX_FMT_NONE},
     .long_name= NULL_IF_CONFIG_SMALL("ASUS V2"),

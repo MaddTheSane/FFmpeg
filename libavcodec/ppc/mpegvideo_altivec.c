@@ -4,20 +4,20 @@
  * dct_unquantize_h263_altivec:
  * Copyright (c) 2003 Romain Dolbeau <romain@dolbeau.org>
  *
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
@@ -268,10 +268,10 @@ static int dct_quantize_altivec(MpegEncContext* s,
             vec_ste(baseVector, 0, &oldBaseValue);
 
             qmat = (vector signed int*)s->q_intra_matrix[qscale];
-            biasAddr = &(s->intra_quant_bias);
+            biasAddr = &s->intra_quant_bias;
         } else {
             qmat = (vector signed int*)s->q_inter_matrix[qscale];
-            biasAddr = &(s->inter_quant_bias);
+            biasAddr = &s->inter_quant_bias;
         }
 
         // Load the bias vector (We add 0.5 to the bias so that we're
@@ -361,8 +361,8 @@ static int dct_quantize_altivec(MpegEncContext* s,
             vector signed int max_q_int, min_q_int;
             vector signed short max_q, min_q;
 
-            LOAD4(max_q_int, &(s->max_qcoeff));
-            LOAD4(min_q_int, &(s->min_qcoeff));
+            LOAD4(max_q_int, &s->max_qcoeff);
+            LOAD4(min_q_int, &s->min_qcoeff);
 
             max_q = vec_pack(max_q_int, max_q_int);
             min_q = vec_pack(min_q_int, min_q_int);
@@ -515,21 +515,6 @@ static void dct_unquantize_h263_altivec(MpegEncContext *s,
         qaddv = vec_splat((vec_s16)vec_lde(0, &qadd8), 0);
         nqaddv = vec_sub(vczero, qaddv);
 
-#if 0   // block *is* 16 bytes-aligned, it seems.
-        // first make sure block[j] is 16 bytes-aligned
-        for(j = 0; (j <= nCoeffs) && ((((unsigned long)block) + (j << 1)) & 0x0000000F) ; j++) {
-            level = block[j];
-            if (level) {
-                if (level < 0) {
-                    level = level * qmul - qadd;
-                } else {
-                    level = level * qmul + qadd;
-                }
-                block[j] = level;
-            }
-        }
-#endif
-
         // vectorize all the 16 bytes-aligned blocks
         // of 8 elements
         for(; (j + 7) <= nCoeffs ; j+=8) {
@@ -573,15 +558,6 @@ void MPV_common_init_altivec(MpegEncContext *s)
 {
     if (!(av_get_cpu_flags() & AV_CPU_FLAG_ALTIVEC)) return;
 
-    if (s->avctx->lowres==0) {
-        if ((s->avctx->idct_algo == FF_IDCT_AUTO) ||
-            (s->avctx->idct_algo == FF_IDCT_ALTIVEC)) {
-            s->dsp.idct_put = idct_put_altivec;
-            s->dsp.idct_add = idct_add_altivec;
-            s->dsp.idct_permutation_type = FF_TRANSPOSE_IDCT_PERM;
-        }
-    }
-
     // Test to make sure that the dct required alignments are met.
     if ((((long)(s->q_intra_matrix) & 0x0f) != 0) ||
         (((long)(s->q_inter_matrix) & 0x0f) != 0)) {
@@ -599,9 +575,6 @@ void MPV_common_init_altivec(MpegEncContext *s)
 
     if ((s->avctx->dct_algo == FF_DCT_AUTO) ||
             (s->avctx->dct_algo == FF_DCT_ALTIVEC)) {
-#if 0 /* seems to cause trouble under some circumstances */
-        s->dct_quantize = dct_quantize_altivec;
-#endif
         s->dct_unquantize_h263_intra = dct_unquantize_h263_altivec;
         s->dct_unquantize_h263_inter = dct_unquantize_h263_altivec;
     }

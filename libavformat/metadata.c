@@ -1,27 +1,27 @@
 /*
  * copyright (c) 2009 Michael Niedermayer
  *
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
-#include <strings.h>
 #include "avformat.h"
 #include "metadata.h"
 #include "libavutil/dict.h"
+#include "libavutil/avstring.h"
 
 #if FF_API_OLD_METADATA2
 AVDictionaryEntry *
@@ -69,13 +69,13 @@ void ff_metadata_conv(AVDictionary **pm, const AVMetadataConv *d_conv,
         key = mtag->key;
         if (s_conv)
             for (sc=s_conv; sc->native; sc++)
-                if (!strcasecmp(key, sc->native)) {
+                if (!av_strcasecmp(key, sc->native)) {
                     key = sc->generic;
                     break;
                 }
         if (d_conv)
             for (dc=d_conv; dc->native; dc++)
-                if (!strcasecmp(key, dc->generic)) {
+                if (!av_strcasecmp(key, dc->generic)) {
                     key = dc->native;
                     break;
                 }

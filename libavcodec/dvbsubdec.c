@@ -1,21 +1,21 @@
 /*
- * DVB subtitle decoding for ffmpeg
+ * DVB subtitle decoding
  * Copyright (c) 2005 Ian Caulfield
  *
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 #include "avcodec.h"
@@ -318,9 +318,20 @@ static void delete_region_display_list(DVBSubContext *ctx, DVBSubRegion *region)
 
 }
 
-static void delete_cluts(DVBSubContext *ctx)
+static void delete_state(DVBSubContext *ctx)
 {
+    DVBSubRegion *region;
     DVBSubCLUT *clut;
+
+    while (ctx->region_list) {
+        region = ctx->region_list;
+
+        ctx->region_list = region->next;
+
+        delete_region_display_list(ctx, region);
+        av_free(region->pbuf);
+        av_free(region);
+    }
 
     while (ctx->clut_list) {
         clut = ctx->clut_list;
@@ -329,35 +340,12 @@ static void delete_cluts(DVBSubContext *ctx)
 
         av_free(clut);
     }
-}
 
-static void delete_objects(DVBSubContext *ctx)
-{
-    DVBSubObject *object;
+    av_freep(&ctx->display_definition);
 
-    while (ctx->object_list) {
-        object = ctx->object_list;
-
-        ctx->object_list = object->next;
-
-        av_free(object);
-    }
-}
-
-static void delete_regions(DVBSubContext *ctx)
-{
-    DVBSubRegion *region;
-
-    while (ctx->region_list) {
-        region = ctx->region_list;
-
-        ctx->region_list = region->next;
-
-        delete_region_display_list(ctx, region);
-
-        av_free(region->pbuf);
-        av_free(region);
-    }
+    /* Should already be null */
+    if (ctx->object_list)
+        av_log(0, AV_LOG_ERROR, "Memory deallocation error!\n");
 }
 
 static av_cold int dvbsub_init_decoder(AVCodecContext *avctx)
@@ -442,13 +430,7 @@ static av_cold int dvbsub_close_decoder(AVCodecContext *avctx)
     DVBSubContext *ctx = avctx->priv_data;
     DVBSubRegionDisplay *display;
 
-    delete_regions(ctx);
-
-    delete_objects(ctx);
-
-    delete_cluts(ctx);
-
-    av_freep(&ctx->display_definition);
+    delete_state(ctx);
 
     while (ctx->display_list) {
         display = ctx->display_list;
@@ -1132,9 +1114,7 @@ static void dvbsub_parse_page_segment(AVCodecContext *avctx,
     av_dlog(avctx, "Page time out %ds, state %d\n", ctx->time_out, page_state);
 
     if (page_state == 2) {
-        delete_regions(ctx);
-        delete_objects(ctx);
-        delete_cluts(ctx);
+        delete_state(ctx);
     }
 
     tmp_display_list = ctx->display_list;
@@ -1332,7 +1312,10 @@ static int dvbsub_display_end_segment(AVCodecContext *avctx, const uint8_t *buf,
     int i;
     int offset_x=0, offset_y=0;
 
+    sub->rects = NULL;
+    sub->start_display_time = 0;
     sub->end_display_time = ctx->time_out * 1000;
+    sub->format = 0;
 
     if (display_def) {
         offset_x = display_def->x;
@@ -1360,7 +1343,7 @@ static int dvbsub_display_end_segment(AVCodecContext *avctx, const uint8_t *buf,
         rect->y = display->y_pos + offset_y;
         rect->w = region->width;
         rect->h = region->height;
-        rect->nb_colors = (1 << region->depth);
+        rect->nb_colors = 16;
         rect->type      = SUBTITLE_BITMAP;
         rect->pict.linesize[0] = region->width;
 
@@ -1481,13 +1464,12 @@ static int dvbsub_decode(AVCodecContext *avctx,
 
 
 AVCodec ff_dvbsub_decoder = {
-    "dvbsub",
-    AVMEDIA_TYPE_SUBTITLE,
-    CODEC_ID_DVB_SUBTITLE,
-    sizeof(DVBSubContext),
-    dvbsub_init_decoder,
-    NULL,
-    dvbsub_close_decoder,
-    dvbsub_decode,
+    .name           = "dvbsub",
+    .type           = AVMEDIA_TYPE_SUBTITLE,
+    .id             = CODEC_ID_DVB_SUBTITLE,
+    .priv_data_size = sizeof(DVBSubContext),
+    .init           = dvbsub_init_decoder,
+    .close          = dvbsub_close_decoder,
+    .decode         = dvbsub_decode,
     .long_name = NULL_IF_CONFIG_SMALL("DVB subtitles"),
 };

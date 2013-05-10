@@ -4,20 +4,20 @@
  * Copyright (C) 2007 Marc Hoffman <marc.hoffman@analog.com>
  * Copyright (c) 2006 Michael Benjamin <michael.benjamin@analog.com>
  *
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
@@ -197,14 +197,14 @@ static int bfin_pix_abs8_xy2 (void *c, uint8_t *blk1, uint8_t *blk2, int line_si
 
 void dsputil_init_bfin( DSPContext* c, AVCodecContext *avctx )
 {
-    const int high_bit_depth = avctx->codec_id == CODEC_ID_H264 && avctx->bits_per_raw_sample > 8;
+    const int high_bit_depth = avctx->bits_per_raw_sample > 8;
 
-    c->get_pixels         = ff_bfin_get_pixels;
     c->diff_pixels        = ff_bfin_diff_pixels;
     c->put_pixels_clamped = ff_bfin_put_pixels_clamped;
     c->add_pixels_clamped = ff_bfin_add_pixels_clamped;
 
     if (!high_bit_depth)
+    c->get_pixels         = ff_bfin_get_pixels;
     c->clear_blocks       = bfin_clear_blocks;
     c->pix_sum            = ff_bfin_pix_sum;
     c->pix_norm1          = ff_bfin_pix_norm1;
@@ -253,19 +253,21 @@ void dsputil_init_bfin( DSPContext* c, AVCodecContext *avctx )
 /*     c->put_no_rnd_pixels_tab[0][3] = ff_bfin_put_pixels16_xy2_nornd; */
     }
 
-    if (avctx->dct_algo == FF_DCT_AUTO)
-        c->fdct               = ff_bfin_fdct;
+    if (avctx->bits_per_raw_sample <= 8) {
+        if (avctx->dct_algo == FF_DCT_AUTO)
+            c->fdct                  = ff_bfin_fdct;
 
-    if (avctx->idct_algo==FF_IDCT_VP3) {
-        c->idct_permutation_type = FF_NO_IDCT_PERM;
-        c->idct               = ff_bfin_vp3_idct;
-        c->idct_add           = ff_bfin_vp3_idct_add;
-        c->idct_put           = ff_bfin_vp3_idct_put;
-    } else if (avctx->idct_algo == FF_IDCT_AUTO) {
-        c->idct_permutation_type = FF_NO_IDCT_PERM;
-        c->idct               = ff_bfin_idct;
-        c->idct_add           = bfin_idct_add;
-        c->idct_put           = bfin_idct_put;
+        if (avctx->idct_algo == FF_IDCT_VP3) {
+            c->idct_permutation_type = FF_NO_IDCT_PERM;
+            c->idct                  = ff_bfin_vp3_idct;
+            c->idct_add              = ff_bfin_vp3_idct_add;
+            c->idct_put              = ff_bfin_vp3_idct_put;
+        } else if (avctx->idct_algo == FF_IDCT_AUTO) {
+            c->idct_permutation_type = FF_NO_IDCT_PERM;
+            c->idct                  = ff_bfin_idct;
+            c->idct_add              = bfin_idct_add;
+            c->idct_put              = bfin_idct_put;
+        }
     }
 }
 

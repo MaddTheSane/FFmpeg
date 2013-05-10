@@ -8,20 +8,20 @@
  *
  * SVQ1 Encoder (c) 2004 Mike Melanson <melanson@pcisys.net>
  *
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
@@ -43,7 +43,7 @@
 #undef NDEBUG
 #include <assert.h>
 
-extern const uint8_t mvtab[33][2];
+extern const uint8_t ff_mvtab[33][2];
 
 static VLC svq1_block_type;
 static VLC svq1_motion_component;
@@ -141,7 +141,7 @@ static const uint8_t string_table[256] = {
         break;\
       /* add child nodes */\
       list[n++] = list[i];\
-      list[n++] = list[i] + (((level & 1) ? pitch : 1) << ((level >> 1) + 1));\
+      list[n++] = list[i] + (((level & 1) ? pitch : 1) << ((level / 2) + 1));\
     }
 
 #define SVQ1_ADD_CODEBOOK()\
@@ -195,13 +195,14 @@ static const uint8_t string_table[256] = {
 
 #define SVQ1_CALC_CODEBOOK_ENTRIES(cbook)\
       codebook = (const uint32_t *) cbook[level];\
-      bit_cache = get_bits (bitbuf, 4*stages);\
+      if (stages > 0)\
+        bit_cache = get_bits (bitbuf, 4*stages);\
       /* calculate codebook entries for this vector */\
       for (j=0; j < stages; j++) {\
         entries[j] = (((bit_cache >> (4*(stages - j - 1))) & 0xF) + 16*j) << (level + 1);\
       }\
       mean -= (stages * 128);\
-      n4    = (mean << 16) + mean;
+      n4    = ((mean + (mean >> 31)) << 16) | (mean & 0xFFFF);
 
 static int svq1_decode_block_intra (GetBitContext *bitbuf, uint8_t *pixels, int pitch ) {
   uint32_t    bit_cache;
@@ -317,9 +318,9 @@ static int svq1_decode_motion_vector (GetBitContext *bitbuf, svq1_pmv *mv, svq1_
 
     /* add median of motion vector predictors and clip result */
     if (i == 1)
-      mv->y = ((diff + mid_pred(pmv[0]->y, pmv[1]->y, pmv[2]->y)) << 26) >> 26;
+      mv->y = sign_extend(diff + mid_pred(pmv[0]->y, pmv[1]->y, pmv[2]->y), 6);
     else
-      mv->x = ((diff + mid_pred(pmv[0]->x, pmv[1]->x, pmv[2]->x)) << 26) >> 26;
+      mv->x = sign_extend(diff + mid_pred(pmv[0]->x, pmv[1]->x, pmv[2]->x), 6);
   }
 
   return 0;
@@ -658,6 +659,7 @@ static int svq1_decode_frame(AVCodecContext *avctx,
     av_dlog(s->avctx, "Error in svq1_decode_frame_header %i\n",result);
     return result;
   }
+  avcodec_set_dimensions(avctx, s->width, s->height);
 
   //FIXME this avoids some confusion for "B frames" without 2 references
   //this should be removed after libavcodec can handle more flexible picture types & ordering
@@ -689,12 +691,12 @@ static int svq1_decode_frame(AVCodecContext *avctx,
       linesize= s->uvlinesize;
     }
 
-    current  = s->current_picture.data[i];
+    current = s->current_picture.f.data[i];
 
     if(s->pict_type==AV_PICTURE_TYPE_B){
-        previous = s->next_picture.data[i];
+        previous = s->next_picture.f.data[i];
     }else{
-        previous = s->last_picture.data[i];
+        previous = s->last_picture.f.data[i];
     }
 
     if (s->pict_type == AV_PICTURE_TYPE_I) {
@@ -767,8 +769,8 @@ static av_cold int svq1_decode_init(AVCodecContext *avctx)
         &ff_svq1_block_type_vlc[0][0], 2, 1, 6);
 
     INIT_VLC_STATIC(&svq1_motion_component, 7, 33,
-        &mvtab[0][1], 2, 1,
-        &mvtab[0][0], 2, 1, 176);
+        &ff_mvtab[0][1], 2, 1,
+        &ff_mvtab[0][0], 2, 1, 176);
 
     for (i = 0; i < 6; i++) {
         static const uint8_t sizes[2][6] = {{14, 10, 14, 18, 16, 18}, {10, 10, 14, 14, 14, 16}};
@@ -808,15 +810,14 @@ static av_cold int svq1_decode_end(AVCodecContext *avctx)
 
 
 AVCodec ff_svq1_decoder = {
-    "svq1",
-    AVMEDIA_TYPE_VIDEO,
-    CODEC_ID_SVQ1,
-    sizeof(MpegEncContext),
-    svq1_decode_init,
-    NULL,
-    svq1_decode_end,
-    svq1_decode_frame,
-    CODEC_CAP_DR1,
+    .name           = "svq1",
+    .type           = AVMEDIA_TYPE_VIDEO,
+    .id             = CODEC_ID_SVQ1,
+    .priv_data_size = sizeof(MpegEncContext),
+    .init           = svq1_decode_init,
+    .close          = svq1_decode_end,
+    .decode         = svq1_decode_frame,
+    .capabilities   = CODEC_CAP_DR1,
     .flush= ff_mpeg_flush,
     .pix_fmts= (const enum PixelFormat[]){PIX_FMT_YUV410P, PIX_FMT_NONE},
     .long_name= NULL_IF_CONFIG_SMALL("Sorenson Vector Quantizer 1 / Sorenson Video 1 / SVQ1"),

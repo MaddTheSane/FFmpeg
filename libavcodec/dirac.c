@@ -2,20 +2,20 @@
  * Copyright (C) 2007 Marco Gerards <marco@gnu.org>
  * Copyright (C) 2009 David Conrad
  *
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
@@ -120,7 +120,7 @@ static int parse_source_parameters(AVCodecContext *avctx, GetBitContext *gb,
     // chroma subsampling
     if (get_bits1(gb))
         source->chroma_format = svq3_get_ue_golomb(gb);
-    if (source->chroma_format > 2U) {
+    if (source->chroma_format > 2) {
         av_log(avctx, AV_LOG_ERROR, "Unknown chroma format %d\n",
                source->chroma_format);
         return -1;
@@ -128,14 +128,14 @@ static int parse_source_parameters(AVCodecContext *avctx, GetBitContext *gb,
 
     if (get_bits1(gb))
         source->interlaced = svq3_get_ue_golomb(gb);
-    if (source->interlaced > 1U)
+    if (source->interlaced > 1)
         return -1;
 
     // frame rate
     if (get_bits1(gb)) {
         source->frame_rate_index = svq3_get_ue_golomb(gb);
 
-        if (source->frame_rate_index > 10U)
+        if (source->frame_rate_index > 10)
             return -1;
 
         if (!source->frame_rate_index) {
@@ -145,7 +145,7 @@ static int parse_source_parameters(AVCodecContext *avctx, GetBitContext *gb,
     }
     if (source->frame_rate_index > 0) {
         if (source->frame_rate_index <= 8)
-            frame_rate = ff_frame_rate_tab[source->frame_rate_index];
+            frame_rate = avpriv_frame_rate_tab[source->frame_rate_index];
         else
             frame_rate = dirac_frame_rate[source->frame_rate_index-9];
     }
@@ -156,7 +156,7 @@ static int parse_source_parameters(AVCodecContext *avctx, GetBitContext *gb,
     if (get_bits1(gb)) {
         source->aspect_ratio_index = svq3_get_ue_golomb(gb);
 
-        if (source->aspect_ratio_index > 6U)
+        if (source->aspect_ratio_index > 6)
             return -1;
 
         if (!source->aspect_ratio_index) {
@@ -179,7 +179,7 @@ static int parse_source_parameters(AVCodecContext *avctx, GetBitContext *gb,
     if (get_bits1(gb)) {
         source->pixel_range_index = svq3_get_ue_golomb(gb);
 
-        if (source->pixel_range_index > 4U)
+        if (source->pixel_range_index > 4)
             return -1;
 
         // This assumes either fullrange or MPEG levels only
@@ -207,7 +207,7 @@ static int parse_source_parameters(AVCodecContext *avctx, GetBitContext *gb,
     if (get_bits1(gb)) {
         idx = source->color_spec_index = svq3_get_ue_golomb(gb);
 
-        if (source->color_spec_index > 4U)
+        if (source->color_spec_index > 4)
             return -1;
 
         avctx->color_primaries = dirac_color_presets[idx].color_primaries;
@@ -217,7 +217,7 @@ static int parse_source_parameters(AVCodecContext *avctx, GetBitContext *gb,
         if (!source->color_spec_index) {
             if (get_bits1(gb)) {
                 idx = svq3_get_ue_golomb(gb);
-                if (idx < 3U)
+                if (idx < 3)
                     avctx->color_primaries = dirac_primaries[idx];
             }
 
@@ -242,7 +242,7 @@ static int parse_source_parameters(AVCodecContext *avctx, GetBitContext *gb,
     return 0;
 }
 
-int ff_dirac_parse_sequence_header(AVCodecContext *avctx, GetBitContext *gb,
+int avpriv_dirac_parse_sequence_header(AVCodecContext *avctx, GetBitContext *gb,
                                    dirac_source_params *source)
 {
     unsigned version_major;
@@ -259,7 +259,7 @@ int ff_dirac_parse_sequence_header(AVCodecContext *avctx, GetBitContext *gb,
     else if (version_major > 2)
         av_log(avctx, AV_LOG_WARNING, "Stream may have unhandled features\n");
 
-    if (video_format > 20U)
+    if (video_format > 20)
         return -1;
 
     // Fill in defaults for the source parameters.

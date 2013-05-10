@@ -2,20 +2,20 @@
  * Constants for DV codec
  * Copyright (c) 2002 Fabrice Bellard
  *
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
@@ -245,14 +245,16 @@ static const DVprofile dv_profiles[] = {
     }
 };
 
-const DVprofile* ff_dv_frame_profile(const DVprofile *sys,
+const DVprofile* avpriv_dv_frame_profile(const DVprofile *sys,
                                   const uint8_t* frame, unsigned buf_size)
 {
-   int i;
+   int i, dsf, stype;
 
-   int dsf = (frame[3] & 0x80) >> 7;
+    if (buf_size < 80*5 + 48 + 4)
+        return NULL;
 
-   int stype = frame[80*5 + 48 + 3] & 0x1f;
+   dsf = (frame[3] & 0x80) >> 7;
+   stype = frame[80*5 + 48 + 3] & 0x1f;
 
    /* 576i50 25Mbps 4:1:1 is a special case */
    if (dsf == 1 && stype == 0 && frame[4] & 0x07 /* the APT field */) {
@@ -270,7 +272,7 @@ const DVprofile* ff_dv_frame_profile(const DVprofile *sys,
    return NULL;
 }
 
-const DVprofile* ff_dv_codec_profile(AVCodecContext* codec)
+const DVprofile* avpriv_dv_codec_profile(AVCodecContext* codec)
 {
     int i;
 

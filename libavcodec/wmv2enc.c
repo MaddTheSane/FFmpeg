@@ -1,20 +1,20 @@
 /*
- * Copyright (c) 2002 The FFmpeg Project
+ * Copyright (c) 2002 The Libav Project
  *
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
@@ -171,7 +171,7 @@ void ff_wmv2_encode_mb(MpegEncContext * s,
                  wmv2_inter_table[w->cbp_table_index][cbp + 64][0]);
 
         /* motion vector */
-        h263_pred_motion(s, 0, 0, &pred_x, &pred_y);
+        ff_h263_pred_motion(s, 0, 0, &pred_x, &pred_y);
         ff_msmpeg4_encode_motion(s, motion_x - pred_x,
                               motion_y - pred_y);
     } else {
@@ -212,13 +212,13 @@ void ff_wmv2_encode_mb(MpegEncContext * s,
 }
 
 AVCodec ff_wmv2_encoder = {
-    "wmv2",
-    AVMEDIA_TYPE_VIDEO,
-    CODEC_ID_WMV2,
-    sizeof(Wmv2Context),
-    wmv2_encode_init,
-    MPV_encode_picture,
-    MPV_encode_end,
+    .name           = "wmv2",
+    .type           = AVMEDIA_TYPE_VIDEO,
+    .id             = CODEC_ID_WMV2,
+    .priv_data_size = sizeof(Wmv2Context),
+    .init           = wmv2_encode_init,
+    .encode         = MPV_encode_picture,
+    .close          = MPV_encode_end,
     .pix_fmts= (const enum PixelFormat[]){PIX_FMT_YUV420P, PIX_FMT_NONE},
     .long_name= NULL_IF_CONFIG_SMALL("Windows Media Video 8"),
 };

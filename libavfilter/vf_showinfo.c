@@ -1,25 +1,25 @@
 /*
  * Copyright (c) 2011 Stefano Sabatini
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 /**
  * @file
- * filter fow showing textual video frame information
+ * filter for showing textual video frame information
  */
 
 #include "libavutil/adler32.h"
@@ -63,9 +63,9 @@ static void end_frame(AVFilterLink *inlink)
            "fmt:%s sar:%d/%d s:%dx%d i:%c iskey:%d type:%c "
            "checksum:%u plane_checksum:[%u %u %u %u]\n",
            showinfo->frame,
-           picref->pts, picref ->pts * av_q2d(inlink->time_base), picref->pos,
+           picref->pts, picref->pts * av_q2d(inlink->time_base), picref->pos,
            av_pix_fmt_descriptors[picref->format].name,
-           picref->video->sample_aspect_ratio.num, picref->video->sample_aspect_ratio.den,
+           picref->video->pixel_aspect.num, picref->video->pixel_aspect.den,
            picref->video->w, picref->video->h,
            !picref->video->interlaced     ? 'P' :         /* Progressive  */
            picref->video->top_field_first ? 'T' : 'B',    /* Top / Bottom */

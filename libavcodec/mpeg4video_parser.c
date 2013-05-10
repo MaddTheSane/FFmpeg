@@ -3,20 +3,20 @@
  * Copyright (c) 2003 Fabrice Bellard
  * Copyright (c) 2003 Michael Niedermayer
  *
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
@@ -99,6 +99,7 @@ static av_cold int mpeg4video_parse_init(AVCodecParserContext *s)
     if (!pc->enc)
         return -1;
     pc->first_picture = 1;
+    pc->enc->slice_context_count = 1;
     return 0;
 }
 
@@ -130,10 +131,10 @@ static int mpeg4video_parse(AVCodecParserContext *s,
 
 
 AVCodecParser ff_mpeg4video_parser = {
-    { CODEC_ID_MPEG4 },
-    sizeof(ParseContext1),
-    mpeg4video_parse_init,
-    mpeg4video_parse,
-    ff_parse1_close,
-    ff_mpeg4video_split,
+    .codec_ids      = { CODEC_ID_MPEG4 },
+    .priv_data_size = sizeof(ParseContext1),
+    .parser_init    = mpeg4video_parse_init,
+    .parser_parse   = mpeg4video_parse,
+    .parser_close   = ff_parse1_close,
+    .split          = ff_mpeg4video_split,
 };

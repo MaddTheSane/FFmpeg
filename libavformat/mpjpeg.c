@@ -2,27 +2,27 @@
  * Multipart JPEG format
  * Copyright (c) 2000, 2001, 2002, 2003 Fabrice Bellard
  *
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 #include "avformat.h"
 
 /* Multipart JPEG */
 
-#define BOUNDARY_TAG "ffserver"
+#define BOUNDARY_TAG "avserver"
 
 static int mpjpeg_write_header(AVFormatContext *s)
 {
@@ -54,14 +54,13 @@ static int mpjpeg_write_trailer(AVFormatContext *s)
 }
 
 AVOutputFormat ff_mpjpeg_muxer = {
-    "mpjpeg",
-    NULL_IF_CONFIG_SMALL("MIME multipart JPEG format"),
-    "multipart/x-mixed-replace;boundary=" BOUNDARY_TAG,
-    "mjpg",
-    0,
-    CODEC_ID_NONE,
-    CODEC_ID_MJPEG,
-    mpjpeg_write_header,
-    mpjpeg_write_packet,
-    mpjpeg_write_trailer,
+    .name              = "mpjpeg",
+    .long_name         = NULL_IF_CONFIG_SMALL("MIME multipart JPEG format"),
+    .mime_type         = "multipart/x-mixed-replace;boundary=" BOUNDARY_TAG,
+    .extensions        = "mjpg",
+    .audio_codec       = CODEC_ID_NONE,
+    .video_codec       = CODEC_ID_MJPEG,
+    .write_header      = mpjpeg_write_header,
+    .write_packet      = mpjpeg_write_packet,
+    .write_trailer     = mpjpeg_write_trailer,
 };

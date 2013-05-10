@@ -2,20 +2,20 @@
  * RTSP muxer
  * Copyright (c) 2010 Martin Storsjo
  *
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
@@ -33,20 +33,13 @@
 #include "libavutil/intreadwrite.h"
 #include "libavutil/avstring.h"
 #include "url.h"
-#include "libavutil/opt.h"
-#include "rtpenc.h"
 
 #define SDP_MAX_SIZE 16384
-
-static const AVOption options[] = {
-    FF_RTP_FLAG_OPTS(RTSPState, rtp_muxer_flags),
-    { NULL },
-};
 
 static const AVClass rtsp_muxer_class = {
     .class_name = "RTSP muxer",
     .item_name  = av_default_item_name,
-    .option     = options,
+    .option     = ff_rtsp_options,
     .version    = LIBAVUTIL_VERSION_INT,
 };
 
@@ -241,16 +234,14 @@ static int rtsp_write_close(AVFormatContext *s)
 }
 
 AVOutputFormat ff_rtsp_muxer = {
-    "rtsp",
-    NULL_IF_CONFIG_SMALL("RTSP output format"),
-    NULL,
-    NULL,
-    sizeof(RTSPState),
-    CODEC_ID_AAC,
-    CODEC_ID_MPEG4,
-    rtsp_write_header,
-    rtsp_write_packet,
-    rtsp_write_close,
+    .name              = "rtsp",
+    .long_name         = NULL_IF_CONFIG_SMALL("RTSP output format"),
+    .priv_data_size    = sizeof(RTSPState),
+    .audio_codec       = CODEC_ID_AAC,
+    .video_codec       = CODEC_ID_MPEG4,
+    .write_header      = rtsp_write_header,
+    .write_packet      = rtsp_write_packet,
+    .write_trailer     = rtsp_write_close,
     .flags = AVFMT_NOFILE | AVFMT_GLOBALHEADER,
     .priv_class = &rtsp_muxer_class,
 };

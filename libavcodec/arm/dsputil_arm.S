@@ -2,20 +2,20 @@
 @ ARMv4 optimized DSP utils
 @ Copyright (c) 2004 AGAWA Koji <i (AT) atty (DOT) jp>
 @
-@ This file is part of FFmpeg.
+@ This file is part of Libav.
 @
-@ FFmpeg is free software; you can redistribute it and/or
+@ Libav is free software; you can redistribute it and/or
 @ modify it under the terms of the GNU Lesser General Public
 @ License as published by the Free Software Foundation; either
 @ version 2.1 of the License, or (at your option) any later version.
 @
-@ FFmpeg is distributed in the hope that it will be useful,
+@ Libav is distributed in the hope that it will be useful,
 @ but WITHOUT ANY WARRANTY; without even the implied warranty of
 @ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
 @ Lesser General Public License for more details.
 @
 @ You should have received a copy of the GNU Lesser General Public
-@ License along with FFmpeg; if not, write to the Free Software
+@ License along with Libav; if not, write to the Free Software
 @ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
 @
 
@@ -23,11 +23,6 @@
 #include "asm.S"
 
         preserve8
-
-#if !HAVE_PLD
-.macro pld reg
-.endm
-#endif
 
 #if HAVE_ARMV5TE
 function ff_prefetch_arm, export=1
@@ -37,6 +32,8 @@ function ff_prefetch_arm, export=1
         bne             ff_prefetch_arm
         bx              lr
 endfunc
+#else
+#define pld @
 #endif
 
 .macro  ALIGN_QWORD_D shift, Rd0, Rd1, Rd2, Rd3, Rn0, Rn1, Rn2, Rn3, Rn4
@@ -554,10 +551,12 @@ endfunc
         and             r9,  r5,  r14
         and             r10, r6,  r14
         and             r11, r7,  r14
+        it              eq
         andeq           r14, r14, r14, \rnd #1
         add             r8,  r8,  r10
         add             r9,  r9,  r11
         ldr             r12, =0xfcfcfcfc >> 2
+        itt             eq
         addeq           r8,  r8,  r14
         addeq           r9,  r9,  r14
         and             r4,  r12, r4,  lsr #2
@@ -638,8 +637,10 @@ function ff_add_pixels_clamped_arm, export=1
         mvn             r5,  r5
         mvn             r7,  r7
         tst             r6,  #0x100
+        it              ne
         movne           r6,  r5,  lsr #24
         tst             r8,  #0x100
+        it              ne
         movne           r8,  r7,  lsr #24
         mov             r9,  r6
         ldrsh           r5,  [r0, #4]           /* moved form [A] */
@@ -654,8 +655,10 @@ function ff_add_pixels_clamped_arm, export=1
         mvn             r5,  r5
         mvn             r7,  r7
         tst             r6,  #0x100
+        it              ne
         movne           r6,  r5,  lsr #24
         tst             r8,  #0x100
+        it              ne
         movne           r8,  r7,  lsr #24
         orr             r9,  r9,  r6,  lsl #16
         ldr             r4,  [r1, #4]           /* moved form [B] */
@@ -676,8 +679,10 @@ function ff_add_pixels_clamped_arm, export=1
         mvn             r5,  r5
         mvn             r7,  r7
         tst             r6,  #0x100
+        it              ne
         movne           r6,  r5,  lsr #24
         tst             r8,  #0x100
+        it              ne
         movne           r8,  r7,  lsr #24
         mov             r9,  r6
         ldrsh           r5,  [r0, #12]          /* moved from [D] */
@@ -692,8 +697,10 @@ function ff_add_pixels_clamped_arm, export=1
         mvn             r5,  r5
         mvn             r7,  r7
         tst             r6,  #0x100
+        it              ne
         movne           r6,  r5,  lsr #24
         tst             r8,  #0x100
+        it              ne
         movne           r8,  r7,  lsr #24
         orr             r9,  r9,  r6,  lsl #16
         add             r0,  r0,  #16           /* moved from [E] */

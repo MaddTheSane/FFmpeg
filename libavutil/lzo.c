@@ -2,33 +2,33 @@
  * LZO 1x decompression
  * Copyright (c) 2006 Reimar Doeffinger
  *
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include "avutil.h"
 #include "common.h"
-//! Avoid e.g. MPlayers fast_memcpy, it slows things down here.
+/// Avoid e.g. MPlayers fast_memcpy, it slows things down here.
 #undef memcpy
 #include <string.h>
 #include "lzo.h"
 
-//! Define if we may write up to 12 bytes beyond the output buffer.
+/// Define if we may write up to 12 bytes beyond the output buffer.
 #define OUTBUF_PADDED 1
-//! Define if we may read up to 8 bytes beyond the input buffer.
+/// Define if we may read up to 8 bytes beyond the input buffer.
 #define INBUF_PADDED 1
 typedef struct LZOContext {
     const uint8_t *in, *in_end;
@@ -37,8 +37,8 @@ typedef struct LZOContext {
 } LZOContext;
 
 /**
- * \brief Reads one byte from the input buffer, avoiding an overrun.
- * \return byte read
+ * @brief Reads one byte from the input buffer, avoiding an overrun.
+ * @return byte read
  */
 static inline int get_byte(LZOContext *c) {
     if (c->in < c->in_end)
@@ -54,10 +54,10 @@ static inline int get_byte(LZOContext *c) {
 #endif
 
 /**
- * \brief Decodes a length value in the coding used by lzo.
- * \param x previous byte value
- * \param mask bits used from x
- * \return decoded length value
+ * @brief Decodes a length value in the coding used by lzo.
+ * @param x previous byte value
+ * @param mask bits used from x
+ * @return decoded length value
  */
 static inline int get_len(LZOContext *c, int x, int mask) {
     int cnt = x & mask;
@@ -82,8 +82,8 @@ static inline int get_len(LZOContext *c, int x, int mask) {
 #endif
 
 /**
- * \brief Copies bytes from input to output buffer with checking.
- * \param cnt number of bytes to copy, must be >= 0
+ * @brief Copies bytes from input to output buffer with checking.
+ * @param cnt number of bytes to copy, must be >= 0
  */
 static inline void copy(LZOContext *c, int cnt) {
     register const uint8_t *src = c->in;
@@ -111,9 +111,9 @@ static inline void copy(LZOContext *c, int cnt) {
 static inline void memcpy_backptr(uint8_t *dst, int back, int cnt);
 
 /**
- * \brief Copies previously decoded bytes to current position.
- * \param back how many bytes back we start
- * \param cnt number of bytes to copy, must be >= 0
+ * @brief Copies previously decoded bytes to current position.
+ * @param back how many bytes back we start
+ * @param cnt number of bytes to copy, must be >= 0
  *
  * cnt > back is valid, this will copy the bytes we just copied,
  * thus creating a repeating pattern with a period length of back.

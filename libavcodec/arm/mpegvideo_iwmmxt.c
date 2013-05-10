@@ -1,20 +1,20 @@
 /*
  * copyright (c) 2004 AGAWA Koji
  *
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
@@ -93,29 +93,9 @@ static void dct_unquantize_h263_intra_iwmmxt(MpegEncContext *s,
     block_orig[0] = level;
 }
 
-#if 0
-static void dct_unquantize_h263_inter_iwmmxt(MpegEncContext *s,
-                                             DCTELEM *block, int n, int qscale)
-{
-    int nCoeffs;
-
-    assert(s->block_last_index[n]>=0);
-
-    if(s->ac_pred)
-        nCoeffs=63;
-    else
-        nCoeffs= s->inter_scantable.raster_end[ s->block_last_index[n] ];
-
-    ippiQuantInvInter_Compact_H263_16s_I(block, nCoeffs+1, qscale);
-}
-#endif
-
 void MPV_common_init_iwmmxt(MpegEncContext *s)
 {
     if (!(mm_flags & AV_CPU_FLAG_IWMMXT)) return;
 
     s->dct_unquantize_h263_intra = dct_unquantize_h263_intra_iwmmxt;
-#if 0
-    s->dct_unquantize_h263_inter = dct_unquantize_h263_inter_iwmmxt;
-#endif
 }

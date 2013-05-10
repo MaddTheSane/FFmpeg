@@ -3,20 +3,20 @@
  * (c)1997-99 by H. Dietz and R. Fisher
  * Converted to C and improved by Fabrice Bellard.
  *
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
@@ -74,7 +74,10 @@ int ff_get_cpu_flags_x86(void)
         return 0; /* CPUID not supported */
 #endif
 
-    cpuid(0, max_std_level, vendor.i[0], vendor.i[2], vendor.i[1]);
+    cpuid(0, max_std_level, ebx, ecx, edx);
+    vendor.i[0] = ebx;
+    vendor.i[1] = edx;
+    vendor.i[2] = ecx;
 
     if(max_std_level >= 1){
         cpuid(1, eax, ebx, ecx, std_caps);
@@ -132,6 +135,15 @@ int ff_get_cpu_flags_x86(void)
         if (!strncmp(vendor.c, "AuthenticAMD", 12) &&
             rval & AV_CPU_FLAG_SSE2 && !(ecx & 0x00000040)) {
             rval |= AV_CPU_FLAG_SSE2SLOW;
+        }
+
+        /* XOP and FMA4 use the AVX instruction coding scheme, so they can't be
+         * used unless the OS has AVX support. */
+        if (rval & AV_CPU_FLAG_AVX) {
+            if (ecx & 0x00000800)
+                rval |= AV_CPU_FLAG_XOP;
+            if (ecx & 0x00010000)
+                rval |= AV_CPU_FLAG_FMA4;
         }
     }
 

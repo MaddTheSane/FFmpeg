@@ -2,20 +2,20 @@
  * Realmedia RTSP (RDT) definitions
  * Copyright (c) 2007 Ronald S. Bultje <rbultje@ronald.bitfreak.net>
  *
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
@@ -80,16 +80,16 @@ void ff_rdt_subscribe_rule(char *cmd, int size,
  *
  * @param buf input buffer
  * @param len length of input buffer
- * @param set_id will be set to the set ID this packet belongs to
- * @param seq_no will be set to the sequence number of the packet
- * @param stream_id will be set to the stream ID this packet belongs to
- * @param is_keyframe will be whether this packet belongs to a keyframe
- * @param timestamp will be set to the timestamp of the packet
+ * @param pset_id will be set to the set ID this packet belongs to
+ * @param pseq_no will be set to the sequence number of the packet
+ * @param pstream_id will be set to the stream ID this packet belongs to
+ * @param pis_keyframe will be whether this packet belongs to a keyframe
+ * @param ptimestamp will be set to the timestamp of the packet
  * @return the amount of bytes consumed, or negative on error
  */
 int ff_rdt_parse_header(const uint8_t *buf, int len,
-                        int *set_id, int *seq_no, int *stream_id,
-                        int *is_keyframe, uint32_t *timestamp);
+                        int *pset_id, int *pseq_no, int *pstream_id,
+                        int *pis_keyframe, uint32_t *ptimestamp);
 
 /**
  * Parse RDT-style packet data (header + media data).

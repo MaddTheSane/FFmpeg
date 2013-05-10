@@ -1,20 +1,20 @@
 /*
  * Copyright (c) 2009 Mans Rullgard <mans@mansr.com>
  *
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
@@ -42,7 +42,7 @@ void ff_pred8x8_0lt_dc_neon(uint8_t *src, int stride);
 void ff_pred8x8_l00_dc_neon(uint8_t *src, int stride);
 void ff_pred8x8_0l0_dc_neon(uint8_t *src, int stride);
 
-static void ff_h264_pred_init_neon(H264PredContext *h, int codec_id, const int bit_depth)
+static void ff_h264_pred_init_neon(H264PredContext *h, int codec_id, const int bit_depth, const int chroma_format_idc)
 {
     const int high_depth = bit_depth > 8;
 
@@ -74,7 +74,7 @@ static void ff_h264_pred_init_neon(H264PredContext *h, int codec_id, const int b
         h->pred16x16[PLANE_PRED8x8  ] = ff_pred16x16_plane_neon;
 }
 
-void ff_h264_pred_init_arm(H264PredContext *h, int codec_id, int bit_depth)
+void ff_h264_pred_init_arm(H264PredContext *h, int codec_id, int bit_depth, const int chroma_format_idc)
 {
-    if (HAVE_NEON)    ff_h264_pred_init_neon(h, codec_id, bit_depth);
+    if (HAVE_NEON)    ff_h264_pred_init_neon(h, codec_id, bit_depth, chroma_format_idc);
 }

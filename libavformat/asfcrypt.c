@@ -3,20 +3,20 @@
  * Copyright (c) 2007 Reimar Doeffinger
  * This is a rewrite of code contained in freeme/freeme2
  *
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
@@ -28,9 +28,9 @@
 #include "asfcrypt.h"
 
 /**
- * \brief find multiplicative inverse modulo 2 ^ 32
- * \param v number to invert, must be odd!
- * \return number so that result * v = 1 (mod 2^32)
+ * @brief find multiplicative inverse modulo 2 ^ 32
+ * @param v number to invert, must be odd!
+ * @return number so that result * v = 1 (mod 2^32)
  */
 static uint32_t inverse(uint32_t v) {
     // v ^ 3 gives the inverse (mod 16), could also be implemented
@@ -45,9 +45,9 @@ static uint32_t inverse(uint32_t v) {
 }
 
 /**
- * \brief read keys from keybuf into keys
- * \param keybuf buffer containing the keys
- * \param keys output key array containing the keys for encryption in
+ * @brief read keys from keybuf into keys
+ * @param keybuf buffer containing the keys
+ * @param keys output key array containing the keys for encryption in
  *             native endianness
  */
 static void multiswap_init(const uint8_t keybuf[48], uint32_t keys[12]) {
@@ -57,9 +57,9 @@ static void multiswap_init(const uint8_t keybuf[48], uint32_t keys[12]) {
 }
 
 /**
- * \brief invert the keys so that encryption become decryption keys and
+ * @brief invert the keys so that encryption become decryption keys and
  *        the other way round.
- * \param keys key array of ints to invert
+ * @param keys key array of ints to invert
  */
 static void multiswap_invert_keys(uint32_t keys[12]) {
     int i;
@@ -92,12 +92,12 @@ static uint32_t multiswap_inv_step(const uint32_t keys[12], uint32_t v) {
 }
 
 /**
- * \brief "MultiSwap" encryption
- * \param keys 32 bit numbers in machine endianness,
+ * @brief "MultiSwap" encryption
+ * @param keys 32 bit numbers in machine endianness,
  *             0-4 and 6-10 must be inverted from decryption
- * \param key another key, this one must be the same for the decryption
- * \param data data to encrypt
- * \return encrypted data
+ * @param key another key, this one must be the same for the decryption
+ * @param data data to encrypt
+ * @return encrypted data
  */
 static uint64_t multiswap_enc(const uint32_t keys[12], uint64_t key, uint64_t data) {
     uint32_t a = data;
@@ -114,12 +114,12 @@ static uint64_t multiswap_enc(const uint32_t keys[12], uint64_t key, uint64_t da
 }
 
 /**
- * \brief "MultiSwap" decryption
- * \param keys 32 bit numbers in machine endianness,
+ * @brief "MultiSwap" decryption
+ * @param keys 32 bit numbers in machine endianness,
  *             0-4 and 6-10 must be inverted from encryption
- * \param key another key, this one must be the same as for the encryption
- * \param data data to decrypt
- * \return decrypted data
+ * @param key another key, this one must be the same as for the encryption
+ * @param data data to decrypt
+ * @return decrypted data
  */
 static uint64_t multiswap_dec(const uint32_t keys[12], uint64_t key, uint64_t data) {
     uint32_t a;

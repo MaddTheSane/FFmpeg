@@ -2,20 +2,20 @@
  * H.26L/H.264/AVC/JVT/14496-10/... sei decoding
  * Copyright (c) 2003 Michael Niedermayer <michaelni@gmx.at>
  *
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
@@ -164,7 +164,7 @@ static int decode_buffering_period(H264Context *h){
 int ff_h264_decode_sei(H264Context *h){
     MpegEncContext * const s = &h->s;
 
-    while(get_bits_count(&s->gb) + 16 < s->gb.size_in_bits){
+    while (get_bits_left(&s->gb) > 16) {
         int size, type;
 
         type=0;

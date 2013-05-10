@@ -2,25 +2,26 @@
  * LXF demuxer
  * Copyright (c) 2010 Tomas Härdin
  *
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include "libavutil/intreadwrite.h"
 #include "avformat.h"
+#include "internal.h"
 #include "riff.h"
 
 #define LXF_PACKET_HEADER_SIZE  60
@@ -90,7 +91,7 @@ static int sync(AVFormatContext *s, uint8_t *header)
         return ret < 0 ? ret : AVERROR_EOF;
 
     while (memcmp(buf, LXF_IDENT, LXF_IDENT_LENGTH)) {
-        if (url_feof(s->pb))
+        if (s->pb->eof_reached)
             return AVERROR_EOF;
 
         memmove(buf, &buf[1], LXF_IDENT_LENGTH-1);
@@ -174,14 +175,14 @@ static int get_packet_header(AVFormatContext *s, uint8_t *header, uint32_t *form
         //use audio packet size to determine video standard
         //for NTSC we have one 8008-sample audio frame per five video frames
         if (samples == LXF_SAMPLERATE * 5005 / 30000) {
-            av_set_pts_info(s->streams[0], 64, 1001, 30000);
+            avpriv_set_pts_info(s->streams[0], 64, 1001, 30000);
         } else {
             //assume PAL, but warn if we don't have 1920 samples
             if (samples != LXF_SAMPLERATE / 25)
                 av_log(s, AV_LOG_WARNING,
                        "video doesn't seem to be PAL or NTSC. guessing PAL\n");
 
-            av_set_pts_info(s->streams[0], 64, 1, 25);
+            avpriv_set_pts_info(s->streams[0], 64, 1, 25);
         }
 
         //TODO: warning if track mask != (1 << channels) - 1?
@@ -217,7 +218,7 @@ static int lxf_read_header(AVFormatContext *s, AVFormatParameters *ap)
     if ((ret = avio_read(pb, header_data, LXF_HEADER_DATA_SIZE)) != LXF_HEADER_DATA_SIZE)
         return ret < 0 ? ret : AVERROR_EOF;
 
-    if (!(st = av_new_stream(s, 0)))
+    if (!(st = avformat_new_stream(s, NULL)))
         return AVERROR(ENOMEM);
 
     st->duration          = AV_RL32(&header_data[32]);
@@ -243,14 +244,14 @@ static int lxf_read_header(AVFormatContext *s, AVFormatParameters *ap)
         av_log(s, AV_LOG_WARNING, "VBI data not yet supported\n");
 
     if ((lxf->channels = (disk_params >> 2) & 0xF)) {
-        if (!(st = av_new_stream(s, 1)))
+        if (!(st = avformat_new_stream(s, NULL)))
             return AVERROR(ENOMEM);
 
         st->codec->codec_type  = AVMEDIA_TYPE_AUDIO;
         st->codec->sample_rate = LXF_SAMPLERATE;
         st->codec->channels    = lxf->channels;
 
-        av_set_pts_info(st, 64, 1, st->codec->sample_rate);
+        avpriv_set_pts_info(st, 64, 1, st->codec->sample_rate);
     }
 
     if (format == 1) {

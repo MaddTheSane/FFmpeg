@@ -2,20 +2,20 @@
  * GXF demuxer.
  * Copyright (c) 2006 Reimar Doeffinger
  *
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
@@ -32,11 +32,11 @@ struct gxf_stream_info {
 };
 
 /**
- * \brief parses a packet header, extracting type and length
- * \param pb AVIOContext to read header from
- * \param type detected packet type is stored here
- * \param length detected packet length, excluding header is stored here
- * \return 0 if header not found or contains invalid data, 1 otherwise
+ * @brief parses a packet header, extracting type and length
+ * @param pb AVIOContext to read header from
+ * @param type detected packet type is stored here
+ * @param length detected packet length, excluding header is stored here
+ * @return 0 if header not found or contains invalid data, 1 otherwise
  */
 static int parse_packet_header(AVIOContext *pb, GXFPktType *type, int *length) {
     if (avio_rb32(pb))
@@ -58,7 +58,7 @@ static int parse_packet_header(AVIOContext *pb, GXFPktType *type, int *length) {
 }
 
 /**
- * \brief check if file starts with a PKT_MAP header
+ * @brief check if file starts with a PKT_MAP header
  */
 static int gxf_probe(AVProbeData *p) {
     static const uint8_t startcode[] = {0, 0, 0, 0, 1, 0xbc}; // start with map packet
@@ -70,10 +70,10 @@ static int gxf_probe(AVProbeData *p) {
 }
 
 /**
- * \brief gets the stream index for the track with the specified id, creates new
+ * @brief gets the stream index for the track with the specified id, creates new
  *        stream if not found
- * \param id     id of stream to find / add
- * \param format stream format identifier
+ * @param id     id of stream to find / add
+ * @param format stream format identifier
  */
 static int get_sindex(AVFormatContext *s, int id, int format) {
     int i;
@@ -81,9 +81,10 @@ static int get_sindex(AVFormatContext *s, int id, int format) {
     i = ff_find_stream_index(s, id);
     if (i >= 0)
         return i;
-    st = av_new_stream(s, id);
+    st = avformat_new_stream(s, NULL);
     if (!st)
         return AVERROR(ENOMEM);
+    st->id = id;
     switch (format) {
         case 3:
         case 4:
@@ -153,9 +154,9 @@ static int get_sindex(AVFormatContext *s, int id, int format) {
 }
 
 /**
- * \brief filters out interesting tags from material information.
- * \param len length of tag section, will be adjusted to contain remaining bytes
- * \param si struct to store collected information into
+ * @brief filters out interesting tags from material information.
+ * @param len length of tag section, will be adjusted to contain remaining bytes
+ * @param si struct to store collected information into
  */
 static void gxf_material_tags(AVIOContext *pb, int *len, struct gxf_stream_info *si) {
     si->first_field = AV_NOPTS_VALUE;
@@ -179,20 +180,20 @@ static void gxf_material_tags(AVIOContext *pb, int *len, struct gxf_stream_info 
 }
 
 /**
- * \brief convert fps tag value to AVRational fps
- * \param fps fps value from tag
- * \return fps as AVRational, or 0 / 0 if unknown
+ * @brief convert fps tag value to AVRational fps
+ * @param fps fps value from tag
+ * @return fps as AVRational, or 0 / 0 if unknown
  */
 static AVRational fps_tag2avr(int32_t fps) {
-    extern const AVRational ff_frame_rate_tab[];
+    extern const AVRational avpriv_frame_rate_tab[];
     if (fps < 1 || fps > 9) fps = 9;
-    return ff_frame_rate_tab[9 - fps]; // values have opposite order
+    return avpriv_frame_rate_tab[9 - fps]; // values have opposite order
 }
 
 /**
- * \brief convert UMF attributes flags to AVRational fps
- * \param flags UMF flags to convert
- * \return fps as AVRational, or 0 / 0 if unknown
+ * @brief convert UMF attributes flags to AVRational fps
+ * @param flags UMF flags to convert
+ * @return fps as AVRational, or 0 / 0 if unknown
  */
 static AVRational fps_umf2avr(uint32_t flags) {
     static const AVRational map[] = {{50, 1}, {60000, 1001}, {24, 1},
@@ -202,9 +203,9 @@ static AVRational fps_umf2avr(uint32_t flags) {
 }
 
 /**
- * \brief filters out interesting tags from track information.
- * \param len length of tag section, will be adjusted to contain remaining bytes
- * \param si struct to store collected information into
+ * @brief filters out interesting tags from track information.
+ * @param len length of tag section, will be adjusted to contain remaining bytes
+ * @param si struct to store collected information into
  */
 static void gxf_track_tags(AVIOContext *pb, int *len, struct gxf_stream_info *si) {
     si->frames_per_second = (AVRational){0, 0};
@@ -228,7 +229,7 @@ static void gxf_track_tags(AVIOContext *pb, int *len, struct gxf_stream_info *si
 }
 
 /**
- * \brief read index from FLT packet into stream 0 av_index
+ * @brief read index from FLT packet into stream 0 av_index
  */
 static void gxf_read_index(AVFormatContext *s, int pkt_len) {
     AVIOContext *pb = s->pb;
@@ -361,24 +362,24 @@ static int gxf_header(AVFormatContext *s, AVFormatParameters *ap) {
         main_timebase = (AVRational){1001, 60000};
     for (i = 0; i < s->nb_streams; i++) {
         AVStream *st = s->streams[i];
-        av_set_pts_info(st, 32, main_timebase.num, main_timebase.den);
+        avpriv_set_pts_info(st, 32, main_timebase.num, main_timebase.den);
     }
     return 0;
 }
 
 #define READ_ONE() \
     { \
-        if (!max_interval-- || url_feof(pb)) \
+        if (!max_interval-- || pb->eof_reached) \
             goto out; \
         tmp = tmp << 8 | avio_r8(pb); \
     }
 
 /**
- * \brief resync the stream on the next media packet with specified properties
- * \param max_interval how many bytes to search for matching packet at most
- * \param track track id the media packet must belong to, -1 for any
- * \param timestamp minimum timestamp (== field number) the packet must have, -1 for any
- * \return timestamp of packet found
+ * @brief resync the stream on the next media packet with specified properties
+ * @param max_interval how many bytes to search for matching packet at most
+ * @param track track id the media packet must belong to, -1 for any
+ * @param timestamp minimum timestamp (== field number) the packet must have, -1 for any
+ * @return timestamp of packet found
  */
 static int64_t gxf_resync_media(AVFormatContext *s, uint64_t max_interval, int track, int timestamp) {
     uint32_t tmp;
@@ -424,13 +425,13 @@ static int gxf_packet(AVFormatContext *s, AVPacket *pkt) {
     int pkt_len;
     struct gxf_stream_info *si = s->priv_data;
 
-    while (!url_feof(pb)) {
+    while (!pb->eof_reached) {
         AVStream *st;
         int track_type, track_id, ret;
         int field_nr, field_info, skip = 0;
         int stream_index;
         if (!parse_packet_header(pb, &pkt_type, &pkt_len)) {
-            if (!url_feof(pb))
+            if (!pb->eof_reached)
                 av_log(s, AV_LOG_ERROR, "sync lost\n");
             return -1;
         }
@@ -523,13 +524,12 @@ static int64_t gxf_read_timestamp(AVFormatContext *s, int stream_index,
 }
 
 AVInputFormat ff_gxf_demuxer = {
-    "gxf",
-    NULL_IF_CONFIG_SMALL("GXF format"),
-    sizeof(struct gxf_stream_info),
-    gxf_probe,
-    gxf_header,
-    gxf_packet,
-    NULL,
-    gxf_seek,
-    gxf_read_timestamp,
+    .name           = "gxf",
+    .long_name      = NULL_IF_CONFIG_SMALL("GXF format"),
+    .priv_data_size = sizeof(struct gxf_stream_info),
+    .read_probe     = gxf_probe,
+    .read_header    = gxf_header,
+    .read_packet    = gxf_packet,
+    .read_seek      = gxf_seek,
+    .read_timestamp = gxf_read_timestamp,
 };

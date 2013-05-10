@@ -2,23 +2,24 @@
  * RTP input/output format
  * Copyright (c) 2002 Fabrice Bellard
  *
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
+#include <libavutil/opt.h>
 #include "avformat.h"
 
 #include "rtp.h"
@@ -89,21 +90,32 @@ int ff_rtp_get_codec_info(AVCodecContext *codec, int payload_type)
     return -1;
 }
 
-int ff_rtp_get_payload_type(AVCodecContext *codec)
+int ff_rtp_get_payload_type(AVFormatContext *fmt, AVCodecContext *codec)
 {
-    int i, payload_type;
+    int i;
+    AVOutputFormat *ofmt = fmt ? fmt->oformat : NULL;
 
-    /* compute the payload type */
-    for (payload_type = -1, i = 0; AVRtpPayloadTypes[i].pt >= 0; ++i)
+    /* Was the payload type already specified for the RTP muxer? */
+    if (ofmt && ofmt->priv_class) {
+        int64_t payload_type;
+        if (av_opt_get_int(fmt->priv_data, "payload_type", 0, &payload_type) >= 0 &&
+            payload_type >= 0)
+            return (int)payload_type;
+    }
+
+    /* static payload type */
+    for (i = 0; AVRtpPayloadTypes[i].pt >= 0; ++i)
         if (AVRtpPayloadTypes[i].codec_id == codec->codec_id) {
             if (codec->codec_id == CODEC_ID_H263)
                 continue;
             if (codec->codec_id == CODEC_ID_PCM_S16BE)
                 if (codec->channels != AVRtpPayloadTypes[i].audio_channels)
                     continue;
-            payload_type = AVRtpPayloadTypes[i].pt;
+            return AVRtpPayloadTypes[i].pt;
         }
-    return payload_type;
+
+    /* dynamic payload type */
+    return RTP_PT_PRIVATE + (codec->codec_type == AVMEDIA_TYPE_AUDIO);
 }
 
 const char *ff_rtp_enc_name(int payload_type)

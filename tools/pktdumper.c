@@ -1,20 +1,20 @@
 /*
  * Copyright (c) 2005 Francois Revol
  *
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
@@ -44,7 +44,7 @@ int main(int argc, char **argv)
 {
     char fntemplate[PATH_MAX];
     char pktfilename[PATH_MAX];
-    AVFormatContext *fctx;
+    AVFormatContext *fctx = NULL;
     AVPacket pkt;
     int64_t pktnum = 0;
     int64_t maxpkts = 0;
@@ -83,15 +83,15 @@ int main(int argc, char **argv)
     // register all file formats
     av_register_all();
 
-    err = av_open_input_file(&fctx, argv[1], NULL, 0, NULL);
+    err = avformat_open_input(&fctx, argv[1], NULL, NULL);
     if (err < 0) {
-        fprintf(stderr, "av_open_input_file: error %d\n", err);
+        fprintf(stderr, "cannot open input: error %d\n", err);
         return 1;
     }
 
-    err = av_find_stream_info(fctx);
+    err = avformat_find_stream_info(fctx, NULL);
     if (err < 0) {
-        fprintf(stderr, "av_find_stream_info: error %d\n", err);
+        fprintf(stderr, "avformat_find_stream_info: error %d\n", err);
         return 1;
     }
 
@@ -117,7 +117,7 @@ int main(int argc, char **argv)
             break;
     }
 
-    av_close_input_file(fctx);
+    avformat_close_input(&fctx);
 
     while (donotquit)
         sleep(60);

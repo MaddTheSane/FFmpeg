@@ -2,20 +2,20 @@
  * simple math operations
  * Copyright (c) 2006 Michael Niedermayer <michaelni@gmx.at> et al
  *
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
@@ -64,11 +64,14 @@ static inline av_const int mid_pred(int a, int b, int c)
     __asm__ (
         "mov   %0, %2  \n\t"
         "cmp   %1, %2  \n\t"
+        "itt   gt      \n\t"
         "movgt %0, %1  \n\t"
         "movgt %1, %2  \n\t"
         "cmp   %1, %3  \n\t"
+        "it    le      \n\t"
         "movle %1, %3  \n\t"
         "cmp   %0, %1  \n\t"
+        "it    gt      \n\t"
         "movgt %0, %1  \n\t"
         : "=&r"(m), "+r"(a)
         : "r"(b), "r"(c)

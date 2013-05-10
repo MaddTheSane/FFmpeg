@@ -2,26 +2,26 @@
  * Filter layer - format negotiation
  * Copyright (c) 2007 Bobby Bingham
  *
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include "libavutil/pixdesc.h"
-#include "libavutil/audioconvert.h"
 #include "avfilter.h"
+#include "internal.h"
 
 /**
  * Add all refs from a to ret and destroy a.
@@ -43,21 +43,24 @@ static void merge_ref(AVFilterFormats *ret, AVFilterFormats *a)
 AVFilterFormats *avfilter_merge_formats(AVFilterFormats *a, AVFilterFormats *b)
 {
     AVFilterFormats *ret;
-    unsigned i, j, k = 0;
+    unsigned i, j, k = 0, m_count;
 
-    if (a == b) return a;
+    if (a == b)
+        return a;
 
     ret = av_mallocz(sizeof(AVFilterFormats));
 
     /* merge list of formats */
-    ret->formats = av_malloc(sizeof(*ret->formats) * FFMIN(a->format_count,
-                                                           b->format_count));
-    for(i = 0; i < a->format_count; i ++)
-        for(j = 0; j < b->format_count; j ++)
-            if(a->formats[i] == b->formats[j])
-                ret->formats[k++] = a->formats[i];
+    m_count = FFMIN(a->format_count, b->format_count);
+    if (m_count) {
+        ret->formats = av_malloc(sizeof(*ret->formats) * m_count);
+        for(i = 0; i < a->format_count; i ++)
+            for(j = 0; j < b->format_count; j ++)
+                if(a->formats[i] == b->formats[j])
+                    ret->formats[k++] = a->formats[i];
 
-    ret->format_count = k;
+        ret->format_count = k;
+    }
     /* check that there was at least one common format */
     if(!ret->format_count) {
         av_free(ret->formats);
@@ -73,44 +76,37 @@ AVFilterFormats *avfilter_merge_formats(AVFilterFormats *a, AVFilterFormats *b)
     return ret;
 }
 
-#define MAKE_FORMAT_LIST()                                              \
-    AVFilterFormats *formats;                                           \
-    int count = 0;                                                      \
-    if (fmts)                                                           \
-        for (count = 0; fmts[count] != -1; count++)                     \
-            ;                                                           \
-    formats = av_mallocz(sizeof(AVFilterFormats));                      \
-    if (!formats) return NULL;                                          \
-    formats->format_count = count;                                      \
-    if (count) {                                                        \
-        formats->formats  = av_malloc(sizeof(*formats->formats)*count); \
-        if (!formats->formats) {                                        \
-            av_free(formats);                                           \
-            return NULL;                                                \
-        }                                                               \
+int ff_fmt_is_in(int fmt, const int *fmts)
+{
+    const int *p;
+
+    for (p = fmts; *p != PIX_FMT_NONE; p++) {
+        if (fmt == *p)
+            return 1;
     }
+    return 0;
+}
 
 AVFilterFormats *avfilter_make_format_list(const int *fmts)
 {
-    MAKE_FORMAT_LIST();
-    while (count--)
-        formats->formats[count] = fmts[count];
+    AVFilterFormats *formats;
+    int count;
 
-    return formats;
-}
+    for (count = 0; fmts[count] != -1; count++)
+        ;
 
-AVFilterFormats *avfilter_make_format64_list(const int64_t *fmts)
-{
-    MAKE_FORMAT_LIST();
+    formats               = av_mallocz(sizeof(AVFilterFormats));
     if (count)
-        memcpy(formats->formats, fmts, sizeof(*formats->formats) * count);
+        formats->formats  = av_malloc(sizeof(*formats->formats) * count);
+    formats->format_count = count;
+    memcpy(formats->formats, fmts, sizeof(*formats->formats) * count);
 
     return formats;
 }
 
-int avfilter_add_format(AVFilterFormats **avff, int64_t fmt)
+int avfilter_add_format(AVFilterFormats **avff, int fmt)
 {
-    int64_t *fmts;
+    int *fmts;
 
     if (!(*avff) && !(*avff = av_mallocz(sizeof(AVFilterFormats))))
         return AVERROR(ENOMEM);
@@ -138,27 +134,6 @@ AVFilterFormats *avfilter_all_formats(enum AVMediaType type)
             avfilter_add_format(&ret, fmt);
 
     return ret;
-}
-
-AVFilterFormats *avfilter_all_channel_layouts(void)
-{
-    static int64_t chlayouts[] = {
-        AV_CH_LAYOUT_MONO,
-        AV_CH_LAYOUT_STEREO,
-        AV_CH_LAYOUT_4POINT0,
-        AV_CH_LAYOUT_QUAD,
-        AV_CH_LAYOUT_5POINT0,
-        AV_CH_LAYOUT_5POINT0_BACK,
-        AV_CH_LAYOUT_5POINT1,
-        AV_CH_LAYOUT_5POINT1_BACK,
-        AV_CH_LAYOUT_5POINT1|AV_CH_LAYOUT_STEREO_DOWNMIX,
-        AV_CH_LAYOUT_7POINT1,
-        AV_CH_LAYOUT_7POINT1_WIDE,
-        AV_CH_LAYOUT_7POINT1|AV_CH_LAYOUT_STEREO_DOWNMIX,
-        -1,
-    };
-
-    return avfilter_make_format64_list(chlayouts);
 }
 
 void avfilter_formats_ref(AVFilterFormats *f, AVFilterFormats **ref)

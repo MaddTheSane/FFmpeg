@@ -2,20 +2,20 @@
  * Interface to libfaac for aac encoding
  * Copyright (c) 2002 Gildas Bazin <gbazin@netcourrier.com>
  *
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
@@ -30,13 +30,6 @@
 typedef struct FaacAudioContext {
     faacEncHandle faac_handle;
 } FaacAudioContext;
-
-static const int channel_maps[][6] = {
-    { 2, 0, 1 },          //< C L R
-    { 2, 0, 1, 3 },       //< C L R Cs
-    { 2, 0, 1, 3, 4 },    //< C L R Ls Rs
-    { 2, 0, 1, 4, 5, 3 }, //< C L R Ls Rs LFE
-};
 
 static av_cold int Faac_encode_init(AVCodecContext *avctx)
 {
@@ -93,9 +86,6 @@ static av_cold int Faac_encode_init(AVCodecContext *avctx)
     }
     faac_cfg->outputFormat = 1;
     faac_cfg->inputFormat = FAAC_INPUT_16BIT;
-    if (avctx->channels > 2)
-        memcpy(faac_cfg->channel_map, channel_maps[avctx->channels-3],
-               avctx->channels * sizeof(int));
 
     avctx->frame_size = samples_input / avctx->channels;
 
@@ -165,13 +155,13 @@ static const AVProfile profiles[] = {
 };
 
 AVCodec ff_libfaac_encoder = {
-    "libfaac",
-    AVMEDIA_TYPE_AUDIO,
-    CODEC_ID_AAC,
-    sizeof(FaacAudioContext),
-    Faac_encode_init,
-    Faac_encode_frame,
-    Faac_encode_close,
+    .name           = "libfaac",
+    .type           = AVMEDIA_TYPE_AUDIO,
+    .id             = CODEC_ID_AAC,
+    .priv_data_size = sizeof(FaacAudioContext),
+    .init           = Faac_encode_init,
+    .encode         = Faac_encode_frame,
+    .close          = Faac_encode_close,
     .capabilities = CODEC_CAP_SMALL_LAST_FRAME | CODEC_CAP_DELAY,
     .sample_fmts = (const enum AVSampleFormat[]){AV_SAMPLE_FMT_S16,AV_SAMPLE_FMT_NONE},
     .long_name = NULL_IF_CONFIG_SMALL("libfaac AAC (Advanced Audio Codec)"),

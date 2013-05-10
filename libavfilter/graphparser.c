@@ -3,20 +3,20 @@
  * Copyright (c) 2008 Vitor Sessak
  * Copyright (c) 2007 Bobby Bingham
  *
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
@@ -83,8 +83,8 @@ static char *parse_link_name(const char **buf, void *log_ctx)
  * Create an instance of a filter, initialize and insert it in the
  * filtergraph in *ctx.
  *
+ * @param filt_ctx put here a filter context in case of successful creation and configuration, NULL otherwise.
  * @param ctx the filtergraph context
- * @param put here a filter context in case of successful creation and configuration, NULL otherwise.
  * @param index an index which is supposed to be unique for each filter instance added to the filtergraph
  * @param filt_name the name of the filter to create
  * @param args the arguments provided to the filter during its initialization
@@ -141,6 +141,8 @@ static int create_filter(AVFilterContext **filt_ctx, AVFilterGraph *ctx, int ind
  * corresponding filter instance which is added to graph with
  * create_filter().
  *
+ * @param filt_ctx Pointer that is set to the created and configured filter
+ *                 context on success, set to NULL on failure.
  * @param filt_ctx put here a pointer to the created filter context on
  * success, NULL otherwise
  * @param buf pointer to the buffer to parse, *buf will be updated to
@@ -168,18 +170,13 @@ static int parse_filter(AVFilterContext **filt_ctx, const char **buf, AVFilterGr
     return ret;
 }
 
-AVFilterInOut *avfilter_inout_alloc(void)
+static void free_inout(AVFilterInOut *head)
 {
-    return av_mallocz(sizeof(AVFilterInOut));
-}
-
-void avfilter_inout_free(AVFilterInOut **inout)
-{
-    while (*inout) {
-        AVFilterInOut *next = (*inout)->next;
-        av_freep(&(*inout)->name);
-        av_freep(inout);
-        *inout = next;
+    while (head) {
+        AVFilterInOut *next = head->next;
+        av_free(head->name);
+        av_free(head);
+        head = next;
     }
 }
 
@@ -333,8 +330,8 @@ static int parse_outputs(const char **buf, AVFilterInOut **curr_inputs,
 }
 
 int avfilter_graph_parse(AVFilterGraph *graph, const char *filters,
-                         AVFilterInOut **open_inputs, AVFilterInOut **open_outputs,
-                         void *log_ctx)
+                         AVFilterInOut *open_inputs,
+                         AVFilterInOut *open_outputs, void *log_ctx)
 {
     int index = 0, ret;
     char chr = 0;
@@ -346,7 +343,7 @@ int avfilter_graph_parse(AVFilterGraph *graph, const char *filters,
         const char *filterchain = filters;
         filters += strspn(filters, WHITESPACES);
 
-        if ((ret = parse_inputs(&filters, &curr_inputs, open_outputs, log_ctx)) < 0)
+        if ((ret = parse_inputs(&filters, &curr_inputs, &open_outputs, log_ctx)) < 0)
             goto fail;
 
         if ((ret = parse_filter(&filter, &filters, graph, index, log_ctx)) < 0)
@@ -355,14 +352,14 @@ int avfilter_graph_parse(AVFilterGraph *graph, const char *filters,
         if (filter->input_count == 1 && !curr_inputs && !index) {
             /* First input can be omitted if it is "[in]" */
             const char *tmp = "[in]";
-            if ((ret = parse_inputs(&tmp, &curr_inputs, open_outputs, log_ctx)) < 0)
+            if ((ret = parse_inputs(&tmp, &curr_inputs, &open_outputs, log_ctx)) < 0)
                 goto fail;
         }
 
-        if ((ret = link_filter_inouts(filter, &curr_inputs, open_inputs, log_ctx)) < 0)
+        if ((ret = link_filter_inouts(filter, &curr_inputs, &open_inputs, log_ctx)) < 0)
             goto fail;
 
-        if ((ret = parse_outputs(&filters, &curr_inputs, open_inputs, open_outputs,
+        if ((ret = parse_outputs(&filters, &curr_inputs, &open_inputs, &open_outputs,
                                  log_ctx)) < 0)
             goto fail;
 
@@ -387,10 +384,10 @@ int avfilter_graph_parse(AVFilterGraph *graph, const char *filters,
         goto fail;
     }
 
-    if (open_inputs && *open_inputs && !strcmp((*open_inputs)->name, "out") && curr_inputs) {
+    if (open_inputs && !strcmp(open_inputs->name, "out") && curr_inputs) {
         /* Last output can be omitted if it is "[out]" */
         const char *tmp = "[out]";
-        if ((ret = parse_outputs(&tmp, &curr_inputs, open_inputs, open_outputs,
+        if ((ret = parse_outputs(&tmp, &curr_inputs, &open_inputs, &open_outputs,
                                  log_ctx)) < 0)
             goto fail;
     }
@@ -401,8 +398,8 @@ int avfilter_graph_parse(AVFilterGraph *graph, const char *filters,
     for (; graph->filter_count > 0; graph->filter_count--)
         avfilter_free(graph->filters[graph->filter_count - 1]);
     av_freep(&graph->filters);
-    avfilter_inout_free(open_inputs);
-    avfilter_inout_free(open_outputs);
-    avfilter_inout_free(&curr_inputs);
+    free_inout(open_inputs);
+    free_inout(open_outputs);
+    free_inout(curr_inputs);
     return ret;
 }

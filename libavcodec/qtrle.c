@@ -2,20 +2,20 @@
  * Quicktime Animation (RLE) Video Decoder
  * Copyright (C) 2004 the ffmpeg project
  *
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
@@ -328,7 +328,6 @@ static void qtrle_decode_32bpp(QtrleContext *s, int stream_ptr, int row_ptr, int
     int rle_code;
     int pixel_ptr;
     int row_inc = s->frame.linesize[0];
-    unsigned char a, r, g, b;
     unsigned int argb;
     unsigned char *rgb = s->frame.data[0];
     int pixel_limit = s->frame.linesize[0] * s->avctx->height;
@@ -347,16 +346,13 @@ static void qtrle_decode_32bpp(QtrleContext *s, int stream_ptr, int row_ptr, int
                 /* decode the run length code */
                 rle_code = -rle_code;
                 CHECK_STREAM_PTR(4);
-                a = s->buf[stream_ptr++];
-                r = s->buf[stream_ptr++];
-                g = s->buf[stream_ptr++];
-                b = s->buf[stream_ptr++];
-                argb = (a << 24) | (r << 16) | (g << 8) | (b << 0);
+                argb = AV_RB32(s->buf + stream_ptr);
+                stream_ptr += 4;
 
                 CHECK_PIXEL_PTR(rle_code * 4);
 
                 while (rle_code--) {
-                    *(unsigned int *)(&rgb[pixel_ptr]) = argb;
+                    AV_WN32A(rgb + pixel_ptr, argb);
                     pixel_ptr += 4;
                 }
             } else {
@@ -365,13 +361,10 @@ static void qtrle_decode_32bpp(QtrleContext *s, int stream_ptr, int row_ptr, int
 
                 /* copy pixels directly to output */
                 while (rle_code--) {
-                    a = s->buf[stream_ptr++];
-                    r = s->buf[stream_ptr++];
-                    g = s->buf[stream_ptr++];
-                    b = s->buf[stream_ptr++];
-                    argb = (a << 24) | (r << 16) | (g << 8) | (b << 0);
-                    *(unsigned int *)(&rgb[pixel_ptr]) = argb;
-                    pixel_ptr += 4;
+                    argb = AV_RB32(s->buf + stream_ptr);
+                    AV_WN32A(rgb + pixel_ptr, argb);
+                    stream_ptr += 4;
+                    pixel_ptr  += 4;
                 }
             }
         }
@@ -414,10 +407,9 @@ static av_cold int qtrle_decode_init(AVCodecContext *avctx)
     default:
         av_log (avctx, AV_LOG_ERROR, "Unsupported colorspace: %d bits/sample?\n",
             avctx->bits_per_coded_sample);
-        break;
+        return AVERROR_INVALIDDATA;
     }
 
-    avcodec_get_frame_defaults(&s->frame);
     s->frame.data[0] = NULL;
 
     return 0;
@@ -543,15 +535,14 @@ static av_cold int qtrle_decode_end(AVCodecContext *avctx)
 }
 
 AVCodec ff_qtrle_decoder = {
-    "qtrle",
-    AVMEDIA_TYPE_VIDEO,
-    CODEC_ID_QTRLE,
-    sizeof(QtrleContext),
-    qtrle_decode_init,
-    NULL,
-    qtrle_decode_end,
-    qtrle_decode_frame,
-    CODEC_CAP_DR1,
+    .name           = "qtrle",
+    .type           = AVMEDIA_TYPE_VIDEO,
+    .id             = CODEC_ID_QTRLE,
+    .priv_data_size = sizeof(QtrleContext),
+    .init           = qtrle_decode_init,
+    .close          = qtrle_decode_end,
+    .decode         = qtrle_decode_frame,
+    .capabilities   = CODEC_CAP_DR1,
     .long_name = NULL_IF_CONFIG_SMALL("QuickTime Animation (RLE) video"),
 };
 

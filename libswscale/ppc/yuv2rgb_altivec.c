@@ -3,20 +3,20 @@
  *
  * copyright (C) 2004 Marc Hoffman <marc.hoffman@analog.com>
  *
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
@@ -95,7 +95,6 @@ adjustment.
 #include "libswscale/swscale.h"
 #include "libswscale/swscale_internal.h"
 #include "libavutil/cpu.h"
-#include "libavutil/pixdesc.h"
 #include "yuv2rgb_altivec.h"
 
 #undef PROFILE_THE_BEAST
@@ -299,7 +298,7 @@ static int altivec_##name (SwsContext *c,                               \
     vector signed short R1,G1,B1;                                       \
     vector unsigned char R,G,B;                                         \
                                                                         \
-    const vector unsigned char *y1ivP, *y2ivP, *uivP, *vivP;            \
+    vector unsigned char *y1ivP, *y2ivP, *uivP, *vivP;                  \
     vector unsigned char align_perm;                                    \
                                                                         \
     vector signed short                                                 \
@@ -336,10 +335,10 @@ static int altivec_##name (SwsContext *c,                               \
                                                                         \
         for (j=0;j<w/16;j++) {                                          \
                                                                         \
-            y1ivP = (const vector unsigned char *)y1i;                  \
-            y2ivP = (const vector unsigned char *)y2i;                  \
-            uivP  = (const vector unsigned char *)ui;                   \
-            vivP  = (const vector unsigned char *)vi;                   \
+            y1ivP = (vector unsigned char *)y1i;                        \
+            y2ivP = (vector unsigned char *)y2i;                        \
+            uivP  = (vector unsigned char *)ui;                         \
+            vivP  = (vector unsigned char *)vi;                         \
                                                                         \
             align_perm = vec_lvsl (0, y1i);                             \
             y0 = (vector unsigned char)                                 \
@@ -627,13 +626,13 @@ void ff_yuv2rgb_init_tables_altivec(SwsContext *c, const int inv_table[4], int b
 }
 
 
-void
+static av_always_inline void
 ff_yuv2packedX_altivec(SwsContext *c, const int16_t *lumFilter,
                        const int16_t **lumSrc, int lumFilterSize,
                        const int16_t *chrFilter, const int16_t **chrUSrc,
                        const int16_t **chrVSrc, int chrFilterSize,
                        const int16_t **alpSrc, uint8_t *dest,
-                       int dstW, int dstY)
+                       int dstW, int dstY, enum PixelFormat target)
 {
     int i,j;
     vector signed short X,X0,X1,Y0,U0,V0,Y1,U1,V1,U,V;
@@ -707,7 +706,7 @@ ff_yuv2packedX_altivec(SwsContext *c, const int16_t *lumFilter,
         G  = vec_packclp (G0,G1);
         B  = vec_packclp (B0,B1);
 
-        switch(c->dstFormat) {
+        switch(target) {
         case PIX_FMT_ABGR:  out_abgr  (R,G,B,out); break;
         case PIX_FMT_BGRA:  out_bgra  (R,G,B,out); break;
         case PIX_FMT_RGBA:  out_rgba  (R,G,B,out); break;
@@ -721,7 +720,7 @@ ff_yuv2packedX_altivec(SwsContext *c, const int16_t *lumFilter,
                 static int printed_error_message;
                 if (!printed_error_message) {
                     av_log(c, AV_LOG_ERROR, "altivec_yuv2packedX doesn't support %s output\n",
-                           av_get_pix_fmt_name(c->dstFormat));
+                           sws_format_name(c->dstFormat));
                     printed_error_message=1;
                 }
                 return;
@@ -786,7 +785,7 @@ ff_yuv2packedX_altivec(SwsContext *c, const int16_t *lumFilter,
         B  = vec_packclp (B0,B1);
 
         nout = (vector unsigned char *)scratch;
-        switch(c->dstFormat) {
+        switch(target) {
         case PIX_FMT_ABGR:  out_abgr  (R,G,B,nout); break;
         case PIX_FMT_BGRA:  out_bgra  (R,G,B,nout); break;
         case PIX_FMT_RGBA:  out_rgba  (R,G,B,nout); break;
@@ -796,7 +795,7 @@ ff_yuv2packedX_altivec(SwsContext *c, const int16_t *lumFilter,
         default:
             /* Unreachable, I think. */
             av_log(c, AV_LOG_ERROR, "altivec_yuv2packedX doesn't support %s output\n",
-                   av_get_pix_fmt_name(c->dstFormat));
+                   sws_format_name(c->dstFormat));
             return;
         }
 
@@ -804,3 +803,23 @@ ff_yuv2packedX_altivec(SwsContext *c, const int16_t *lumFilter,
     }
 
 }
+
+#define YUV2PACKEDX_WRAPPER(suffix, pixfmt) \
+void ff_yuv2 ## suffix ## _X_altivec(SwsContext *c, const int16_t *lumFilter, \
+                            const int16_t **lumSrc, int lumFilterSize, \
+                            const int16_t *chrFilter, const int16_t **chrUSrc, \
+                            const int16_t **chrVSrc, int chrFilterSize, \
+                            const int16_t **alpSrc, uint8_t *dest, \
+                            int dstW, int dstY) \
+{ \
+    ff_yuv2packedX_altivec(c, lumFilter, lumSrc, lumFilterSize, \
+                           chrFilter, chrUSrc, chrVSrc, chrFilterSize, \
+                           alpSrc, dest, dstW, dstY, pixfmt); \
+}
+
+YUV2PACKEDX_WRAPPER(abgr,  PIX_FMT_ABGR);
+YUV2PACKEDX_WRAPPER(bgra,  PIX_FMT_BGRA);
+YUV2PACKEDX_WRAPPER(argb,  PIX_FMT_ARGB);
+YUV2PACKEDX_WRAPPER(rgba,  PIX_FMT_RGBA);
+YUV2PACKEDX_WRAPPER(rgb24, PIX_FMT_RGB24);
+YUV2PACKEDX_WRAPPER(bgr24, PIX_FMT_BGR24);

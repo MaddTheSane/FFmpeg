@@ -2,20 +2,20 @@
  * CAF common code
  * Copyright (c) 2007  Justin Ruggles
  *
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
@@ -39,8 +39,6 @@ const AVCodecTag ff_codec_caf_tags[] = {
   /*{ CODEC_ID_DVAUDIO,         MKBETAG('v','d','v','a') },*/
   /*{ CODEC_ID_DVAUDIO,         MKBETAG('d','v','c','a') },*/
     { CODEC_ID_ADPCM_IMA_QT,    MKBETAG('i','m','a','4') },
-    { CODEC_ID_AMR_NB,          MKBETAG('s','a','m','r') },
-    { CODEC_ID_GSM,             MKBETAG('a','g','s','m') },
     { CODEC_ID_MACE3,           MKBETAG('M','A','C','3') },
     { CODEC_ID_MACE6,           MKBETAG('M','A','C','6') },
     { CODEC_ID_MP3,             MKBETAG('.','m','p','3') },
@@ -58,4 +56,3 @@ const AVCodecTag ff_codec_caf_tags[] = {
   /*{ MPEG4TwinVQ               MKBETAG('t','w','v','q') },*/
     { CODEC_ID_NONE,            0 },
 };
-

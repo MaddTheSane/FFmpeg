@@ -2,20 +2,20 @@
  * Session Announcement Protocol (RFC 2974) muxer
  * Copyright (c) 2010 Martin Storsjo
  *
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
@@ -146,7 +146,7 @@ static int sap_write_header(AVFormatContext *s)
                     "?ttl=%d", ttl);
         if (!same_port)
             base_port += 2;
-        ret = ffurl_open(&fd, url, AVIO_FLAG_WRITE);
+        ret = ffurl_open(&fd, url, AVIO_FLAG_WRITE, &s->interrupt_callback, NULL);
         if (ret) {
             ret = AVERROR(EIO);
             goto fail;
@@ -158,7 +158,8 @@ static int sap_write_header(AVFormatContext *s)
 
     ff_url_join(url, sizeof(url), "udp", NULL, announce_addr, port,
                 "?ttl=%d&connect=1", ttl);
-    ret = ffurl_open(&sap->ann_fd, url, AVIO_FLAG_WRITE);
+    ret = ffurl_open(&sap->ann_fd, url, AVIO_FLAG_WRITE,
+                     &s->interrupt_callback, NULL);
     if (ret) {
         ret = AVERROR(EIO);
         goto fail;
@@ -250,16 +251,14 @@ static int sap_write_packet(AVFormatContext *s, AVPacket *pkt)
 }
 
 AVOutputFormat ff_sap_muxer = {
-    "sap",
-    NULL_IF_CONFIG_SMALL("SAP output format"),
-    NULL,
-    NULL,
-    sizeof(struct SAPState),
-    CODEC_ID_AAC,
-    CODEC_ID_MPEG4,
-    sap_write_header,
-    sap_write_packet,
-    sap_write_close,
+    .name              = "sap",
+    .long_name         = NULL_IF_CONFIG_SMALL("SAP output format"),
+    .priv_data_size    = sizeof(struct SAPState),
+    .audio_codec       = CODEC_ID_AAC,
+    .video_codec       = CODEC_ID_MPEG4,
+    .write_header      = sap_write_header,
+    .write_packet      = sap_write_packet,
+    .write_trailer     = sap_write_close,
     .flags = AVFMT_NOFILE | AVFMT_GLOBALHEADER,
 };
 

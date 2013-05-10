@@ -1,20 +1,20 @@
 /*
  * Copyright (c) 2008 BBC, Anuradha Suraparaju <asuraparaju at gmail dot com >
  *
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
@@ -25,7 +25,7 @@
 
 #include "libdirac_libschro.h"
 
-static const FfmpegDiracSchroVideoFormatInfo ff_dirac_schro_video_format_info[] = {
+static const DiracSchroVideoFormatInfo ff_dirac_schro_video_format_info[] = {
     { 640,  480,  24000, 1001},
     { 176,  120,  15000, 1001},
     { 176,  144,  25,    2   },
@@ -53,7 +53,7 @@ unsigned int ff_dirac_schro_get_video_format_idx(AVCodecContext *avccontext)
                                sizeof(ff_dirac_schro_video_format_info[0]);
 
     for (idx = 1; idx < num_formats; ++idx) {
-        const FfmpegDiracSchroVideoFormatInfo *vf = &ff_dirac_schro_video_format_info[idx];
+        const DiracSchroVideoFormatInfo *vf = &ff_dirac_schro_video_format_info[idx];
         if (avccontext->width  == vf->width &&
             avccontext->height == vf->height) {
             ret_idx = idx;
@@ -65,22 +65,22 @@ unsigned int ff_dirac_schro_get_video_format_idx(AVCodecContext *avccontext)
     return ret_idx;
 }
 
-void ff_dirac_schro_queue_init(FfmpegDiracSchroQueue *queue)
+void ff_dirac_schro_queue_init(DiracSchroQueue *queue)
 {
     queue->p_head = queue->p_tail = NULL;
     queue->size = 0;
 }
 
-void ff_dirac_schro_queue_free(FfmpegDiracSchroQueue *queue,
+void ff_dirac_schro_queue_free(DiracSchroQueue *queue,
                                void (*free_func)(void *))
 {
     while (queue->p_head)
         free_func(ff_dirac_schro_queue_pop(queue));
 }
 
-int ff_dirac_schro_queue_push_back(FfmpegDiracSchroQueue *queue, void *p_data)
+int ff_dirac_schro_queue_push_back(DiracSchroQueue *queue, void *p_data)
 {
-    FfmpegDiracSchroQueueElement *p_new = av_mallocz(sizeof(FfmpegDiracSchroQueueElement));
+    DiracSchroQueueElement *p_new = av_mallocz(sizeof(DiracSchroQueueElement));
 
     if (!p_new)
         return -1;
@@ -97,9 +97,9 @@ int ff_dirac_schro_queue_push_back(FfmpegDiracSchroQueue *queue, void *p_data)
     return 0;
 }
 
-void *ff_dirac_schro_queue_pop(FfmpegDiracSchroQueue *queue)
+void *ff_dirac_schro_queue_pop(DiracSchroQueue *queue)
 {
-    FfmpegDiracSchroQueueElement *top = queue->p_head;
+    DiracSchroQueueElement *top = queue->p_head;
 
     if (top) {
         void *data = top->data;

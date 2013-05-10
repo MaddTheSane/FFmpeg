@@ -2,20 +2,20 @@
  * Linux video grab interface
  * Copyright (c) 2000,2001 Fabrice Bellard
  *
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
@@ -29,6 +29,8 @@
 #include "libavutil/imgutils.h"
 #include "libavutil/log.h"
 #include "libavutil/opt.h"
+#include "libavformat/avformat.h"
+#include "libavformat/internal.h"
 #include "libavcodec/dsputil.h"
 #include <unistd.h>
 #include <fcntl.h>
@@ -38,8 +40,6 @@
 #define _LINUX_TIME_H 1
 #include <linux/videodev.h>
 #include <time.h>
-#include <strings.h>
-#include "avdevice.h"
 
 typedef struct {
     AVClass *class;
@@ -98,10 +98,10 @@ static int grab_read_header(AVFormatContext *s1, AVFormatParameters *ap)
     s->video_win.width = ap->width;
     s->video_win.height = ap->height;
 
-    st = av_new_stream(s1, 0);
+    st = avformat_new_stream(s1, NULL);
     if (!st)
         return AVERROR(ENOMEM);
-    av_set_pts_info(st, 64, 1, 1000000); /* 64 bits pts in us */
+    avpriv_set_pts_info(st, 64, 1, 1000000); /* 64 bits pts in us */
 
     video_fd = open(s1->filename, O_RDWR);
     if (video_fd < 0) {
@@ -142,16 +142,6 @@ static int grab_read_header(AVFormatContext *s1, AVFormatParameters *ap)
 
     /* set tv standard */
     if (!ioctl(video_fd, VIDIOCGTUNER, &tuner)) {
-#if FF_API_FORMAT_PARAMETERS
-        if (ap->standard) {
-            if (!strcasecmp(ap->standard, "pal"))
-                s->standard = VIDEO_MODE_PAL;
-            else if (!strcasecmp(ap->standard, "secam"))
-                s->standard = VIDEO_MODE_SECAM;
-            else
-                s->standard = VIDEO_MODE_NTSC;
-        }
-#endif
         tuner.mode = s->standard;
         ioctl(video_fd, VIDIOCSTUNER, &tuner);
     }
@@ -164,14 +154,8 @@ static int grab_read_header(AVFormatContext *s1, AVFormatParameters *ap)
     ioctl(video_fd, VIDIOCSAUDIO, &audio);
 
     ioctl(video_fd, VIDIOCGPICT, &pict);
-#if 0
-    printf("v4l: colour=%d hue=%d brightness=%d constrast=%d whiteness=%d\n",
-           pict.colour,
-           pict.hue,
-           pict.brightness,
-           pict.contrast,
-           pict.whiteness);
-#endif
+    av_dlog(s1, "v4l: colour=%d hue=%d brightness=%d constrast=%d whiteness=%d\n",
+            pict.colour, pict.hue, pict.brightness, pict.contrast, pict.whiteness);
     /* try to choose a suitable video format */
     pict.palette = desired_palette;
     pict.depth= desired_depth;
@@ -355,10 +339,10 @@ static int grab_read_close(AVFormatContext *s1)
 }
 
 static const AVOption options[] = {
-    { "standard", "", offsetof(VideoData, standard), FF_OPT_TYPE_INT, {.dbl = VIDEO_MODE_NTSC}, VIDEO_MODE_PAL, VIDEO_MODE_NTSC, AV_OPT_FLAG_DECODING_PARAM, "standard" },
-    { "PAL",   "", 0, FF_OPT_TYPE_CONST, {.dbl = VIDEO_MODE_PAL},   0, 0, AV_OPT_FLAG_DECODING_PARAM, "standard" },
-    { "SECAM", "", 0, FF_OPT_TYPE_CONST, {.dbl = VIDEO_MODE_SECAM}, 0, 0, AV_OPT_FLAG_DECODING_PARAM, "standard" },
-    { "NTSC",  "", 0, FF_OPT_TYPE_CONST, {.dbl = VIDEO_MODE_NTSC},  0, 0, AV_OPT_FLAG_DECODING_PARAM, "standard" },
+    { "standard", "", offsetof(VideoData, standard), AV_OPT_TYPE_INT, {.dbl = VIDEO_MODE_NTSC}, VIDEO_MODE_PAL, VIDEO_MODE_NTSC, AV_OPT_FLAG_DECODING_PARAM, "standard" },
+    { "PAL",   "", 0, AV_OPT_TYPE_CONST, {.dbl = VIDEO_MODE_PAL},   0, 0, AV_OPT_FLAG_DECODING_PARAM, "standard" },
+    { "SECAM", "", 0, AV_OPT_TYPE_CONST, {.dbl = VIDEO_MODE_SECAM}, 0, 0, AV_OPT_FLAG_DECODING_PARAM, "standard" },
+    { "NTSC",  "", 0, AV_OPT_TYPE_CONST, {.dbl = VIDEO_MODE_NTSC},  0, 0, AV_OPT_FLAG_DECODING_PARAM, "standard" },
     { NULL },
 };
 
@@ -370,14 +354,13 @@ static const AVClass v4l_class = {
 };
 
 AVInputFormat ff_v4l_demuxer = {
-    "video4linux",
-    NULL_IF_CONFIG_SMALL("Video4Linux device grab"),
-    sizeof(VideoData),
-    NULL,
-    grab_read_header,
-    grab_read_packet,
-    grab_read_close,
-    .flags = AVFMT_NOFILE,
-    .priv_class = &v4l_class,
+    .name           = "video4linux",
+    .long_name      = NULL_IF_CONFIG_SMALL("Video4Linux device grab"),
+    .priv_data_size = sizeof(VideoData),
+    .read_header    = grab_read_header,
+    .read_packet    = grab_read_packet,
+    .read_close     = grab_read_close,
+    .flags          = AVFMT_NOFILE,
+    .priv_class     = &v4l_class,
 };
 #endif  /* FF_API_V4L */

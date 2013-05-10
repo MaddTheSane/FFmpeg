@@ -2,20 +2,20 @@
  * Bethsoft VID format Demuxer
  * Copyright (c) 2007 Nicholas Tung
  *
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
@@ -23,12 +23,13 @@
  * @file
  * @brief Bethesda Softworks VID (.vid) file demuxer
  * @author Nicholas Tung [ntung (at. ntung com] (2007-03)
- * @sa http://wiki.multimedia.cx/index.php?title=Bethsoft_VID
- * @sa http://www.svatopluk.com/andux/docs/dfvid.html
+ * @see http://wiki.multimedia.cx/index.php?title=Bethsoft_VID
+ * @see http://www.svatopluk.com/andux/docs/dfvid.html
  */
 
 #include "libavutil/intreadwrite.h"
 #include "avformat.h"
+#include "internal.h"
 #include "libavcodec/bethsoftvideo.h"
 
 typedef struct BVID_DemuxContext
@@ -70,10 +71,10 @@ static int vid_read_header(AVFormatContext *s,
     avio_skip(pb, 5);
     vid->nframes = avio_rl16(pb);
 
-    stream = av_new_stream(s, 0);
+    stream = avformat_new_stream(s, NULL);
     if (!stream)
         return AVERROR(ENOMEM);
-    av_set_pts_info(stream, 32, 1, 60);     // 16 ms increments, i.e. 60 fps
+    avpriv_set_pts_info(stream, 32, 1, 60);     // 16 ms increments, i.e. 60 fps
     stream->codec->codec_type = AVMEDIA_TYPE_VIDEO;
     stream->codec->codec_id = CODEC_ID_BETHSOFTVID;
     stream->codec->width = avio_rl16(pb);
@@ -83,7 +84,7 @@ static int vid_read_header(AVFormatContext *s,
     avio_rl16(pb);
 
     // done with video codec, set up audio codec
-    stream = av_new_stream(s, 0);
+    stream = avformat_new_stream(s, NULL);
     if (!stream)
         return AVERROR(ENOMEM);
     stream->codec->codec_type = AVMEDIA_TYPE_AUDIO;
@@ -179,7 +180,7 @@ static int vid_read_packet(AVFormatContext *s,
     int audio_length;
     int ret_value;
 
-    if(vid->is_finished || url_feof(pb))
+    if(vid->is_finished || pb->eof_reached)
         return AVERROR(EIO);
 
     block_type = avio_r8(pb);
@@ -220,15 +221,13 @@ static int vid_read_packet(AVFormatContext *s,
             av_log(s, AV_LOG_ERROR, "unknown block (character = %c, decimal = %d, hex = %x)!!!\n",
                    block_type, block_type, block_type); return -1;
     }
-
-    return 0;
 }
 
 AVInputFormat ff_bethsoftvid_demuxer = {
-    "bethsoftvid",
-    NULL_IF_CONFIG_SMALL("Bethesda Softworks VID format"),
-    sizeof(BVID_DemuxContext),
-    vid_probe,
-    vid_read_header,
-    vid_read_packet,
+    .name           = "bethsoftvid",
+    .long_name      = NULL_IF_CONFIG_SMALL("Bethesda Softworks VID format"),
+    .priv_data_size = sizeof(BVID_DemuxContext),
+    .read_probe     = vid_probe,
+    .read_header    = vid_read_header,
+    .read_packet    = vid_read_packet,
 };

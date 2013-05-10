@@ -2,20 +2,20 @@
  * IIR filter
  * Copyright (c) 2008 Konstantin Shishkov
  *
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
@@ -311,6 +311,9 @@ av_cold void ff_iir_filter_free_coeffs(struct FFIIRFilterCoeffs *coeffs)
 }
 
 #ifdef TEST
+#undef printf
+#include <stdio.h>
+
 #define FILT_ORDER 4
 #define SIZE 1024
 int main(void)
@@ -320,7 +323,6 @@ int main(void)
     float cutoff_coeff = 0.4;
     int16_t x[SIZE], y[SIZE];
     int i;
-    FILE* fd;
 
     fcoeffs = ff_iir_filter_init_coeffs(NULL, FF_FILTER_TYPE_BUTTERWORTH,
                                         FF_FILTER_MODE_LOWPASS, FILT_ORDER,
@@ -333,13 +335,8 @@ int main(void)
 
     ff_iir_filter(fcoeffs, fstate, SIZE, x, 1, y, 1);
 
-    fd = fopen("in.bin", "w");
-    fwrite(x, sizeof(x[0]), SIZE, fd);
-    fclose(fd);
-
-    fd = fopen("out.bin", "w");
-    fwrite(y, sizeof(y[0]), SIZE, fd);
-    fclose(fd);
+    for (i = 0; i < SIZE; i++)
+        printf("%6d %6d\n", x[i], y[i]);
 
     ff_iir_filter_free_coeffs(fcoeffs);
     ff_iir_filter_free_state(fstate);

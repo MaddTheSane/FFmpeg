@@ -50,3 +50,6 @@ tools/qt-faststart
 tools/trasher
 tools/trasher*.d
 version.h
+*.DS_Store
+*.orig
+patched

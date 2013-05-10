@@ -7,20 +7,20 @@
  * This algorithm (though not any of the implementation details) is
  * based on libdjbfft by D. J. Bernstein.
  *
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
@@ -28,7 +28,6 @@
 
 #define M_SQRT1_2 0.70710678118654752440
 
-        .text
 
 function fft4_neon
         vld1.32         {d0-d3}, [r0,:128]
@@ -349,9 +348,7 @@ function ff_fft_permute_neon, export=1
         pop             {r4,pc}
 endfunc
 
-        .section .rodata
-        .align 4
-fft_tab_neon:
+const   fft_tab_neon
         .word fft4_neon
         .word fft8_neon
         .word fft16_neon
@@ -367,8 +364,12 @@ fft_tab_neon:
         .word fft16384_neon
         .word fft32768_neon
         .word fft65536_neon
-ELF     .size fft_tab_neon, . - fft_tab_neon
+endconst
 
-        .align 4
-pmmp:   .float  +1.0, -1.0, -1.0, +1.0
-mppm:   .float  -M_SQRT1_2, M_SQRT1_2, M_SQRT1_2, -M_SQRT1_2
+const   pmmp, align=4
+        .float          +1.0, -1.0, -1.0, +1.0
+endconst
+
+const   mppm, align=4
+        .float          -M_SQRT1_2, M_SQRT1_2, M_SQRT1_2, -M_SQRT1_2
+endconst

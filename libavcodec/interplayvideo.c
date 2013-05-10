@@ -2,20 +2,20 @@
  * Interplay MVE Video Decoder
  * Copyright (C) 2003 the ffmpeg project
  *
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
@@ -41,7 +41,7 @@
 #include "avcodec.h"
 #include "bytestream.h"
 #include "dsputil.h"
-#define ALT_BITSTREAM_READER_LE
+#define BITSTREAM_READER_LE
 #include "get_bits.h"
 
 #define PALETTE_COUNT 256
@@ -1019,12 +1019,6 @@ static av_cold int ipvideo_decode_init(AVCodecContext *avctx)
 
     dsputil_init(&s->dsp, avctx);
 
-    /* decoding map contains 4 bits of information per 8x8 block */
-    s->decoding_map_size = avctx->width * avctx->height / (8 * 8 * 2);
-
-    avcodec_get_frame_defaults(&s->second_last_frame);
-    avcodec_get_frame_defaults(&s->last_frame);
-    avcodec_get_frame_defaults(&s->current_frame);
     s->current_frame.data[0] = s->last_frame.data[0] =
     s->second_last_frame.data[0] = NULL;
 
@@ -1038,6 +1032,9 @@ static int ipvideo_decode_frame(AVCodecContext *avctx,
     const uint8_t *buf = avpkt->data;
     int buf_size = avpkt->size;
     IpvideoContext *s = avctx->priv_data;
+
+    /* decoding map contains 4 bits of information per 8x8 block */
+    s->decoding_map_size = avctx->width * avctx->height / (8 * 8 * 2);
 
     /* compressed buffer needs to be large enough to at least hold an entire
      * decoding map */
@@ -1092,14 +1089,13 @@ static av_cold int ipvideo_decode_end(AVCodecContext *avctx)
 }
 
 AVCodec ff_interplay_video_decoder = {
-    "interplayvideo",
-    AVMEDIA_TYPE_VIDEO,
-    CODEC_ID_INTERPLAY_VIDEO,
-    sizeof(IpvideoContext),
-    ipvideo_decode_init,
-    NULL,
-    ipvideo_decode_end,
-    ipvideo_decode_frame,
-    CODEC_CAP_DR1,
+    .name           = "interplayvideo",
+    .type           = AVMEDIA_TYPE_VIDEO,
+    .id             = CODEC_ID_INTERPLAY_VIDEO,
+    .priv_data_size = sizeof(IpvideoContext),
+    .init           = ipvideo_decode_init,
+    .close          = ipvideo_decode_end,
+    .decode         = ipvideo_decode_frame,
+    .capabilities   = CODEC_CAP_DR1 | CODEC_CAP_PARAM_CHANGE,
     .long_name = NULL_IF_CONFIG_SMALL("Interplay MVE video"),
 };

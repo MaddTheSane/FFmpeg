@@ -2,20 +2,20 @@
  * H26L/H264/AVC/JVT/14496-10/... encoder/decoder
  * Copyright (c) 2003 Michael Niedermayer <michaelni@gmx.at>
  *
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
@@ -80,7 +80,14 @@ static const uint8_t luma_dc_field_scan[16]={
 
 static const uint8_t chroma_dc_scan[4]={
  (0+0*2)*16, (1+0*2)*16,
- (0+1*2)*16, (1+1*2)*16,  //FIXME
+ (0+1*2)*16, (1+1*2)*16,
+};
+
+static const uint8_t chroma422_dc_scan[8]={
+ (0+0*2)*16, (0+1*2)*16,
+ (1+0*2)*16, (0+2*2)*16,
+ (0+3*2)*16, (1+1*2)*16,
+ (1+2*2)*16, (1+3*2)*16,
 };
 
 // zigzag_scan8x8_cavlc[i] = zigzag_scan8x8[(i/4) + 16*(i%4)]

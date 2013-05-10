@@ -2,20 +2,20 @@
  * Microsoft RLE decoder
  * Copyright (C) 2008 Konstantin Shishkov
  *
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
@@ -138,8 +138,8 @@ static int msrle_decode_8_16_24_32(AVCodecContext *avctx, AVPicture *pic, int de
     uint32_t av_uninit(pix32);
     unsigned int width= FFABS(pic->linesize[0]) / (depth >> 3);
 
-    output = pic->data[0] + (avctx->height - 1) * pic->linesize[0];
-    output_end = pic->data[0] + (avctx->height) * pic->linesize[0];
+    output     = pic->data[0] + (avctx->height - 1) * pic->linesize[0];
+    output_end = pic->data[0] +  avctx->height      * pic->linesize[0];
     while(src < data + srcsize) {
         p1 = *src++;
         if(p1 == 0) { //Escape code

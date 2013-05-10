@@ -2,20 +2,20 @@
  * Copyright (C) 2005  Ole André Vadla Ravnås <oleavr@gmail.com>
  * Copyright (C) 2008  Ramiro Polla
  *
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
@@ -24,6 +24,7 @@
 #include <stdint.h>
 
 #include "avcodec.h"
+#include "internal.h"
 #include "get_bits.h"
 #include "bytestream.h"
 #include "dsputil.h"
@@ -209,7 +210,7 @@ static int vlc_decode_block(MimicContext *ctx, int num_coeffs, int qscale)
 
         value = get_bits(&ctx->gb, num_bits);
 
-        /* FFmpeg's IDCT behaves somewhat different from the original code, so
+        /* Libav's IDCT behaves somewhat different from the original code, so
          * a factor of 4 was added to the input */
 
         coeff = vlcdec_lookup[num_bits][value];
@@ -258,8 +259,8 @@ static int decode(MimicContext *ctx, int quality, int num_coeffs,
                         int index = (ctx->cur_index+backref)&15;
                         uint8_t *p = ctx->flipped_ptrs[index].data[0];
 
-                        ff_thread_await_progress(&ctx->buf_ptrs[index], cur_row, 0);
-                        if(p) {
+                        if (index != ctx->cur_index && p) {
+                            ff_thread_await_progress(&ctx->buf_ptrs[index], cur_row, 0);
                             p += src -
                                 ctx->flipped_ptrs[ctx->prev_index].data[plane];
                             ctx->dsp.put_pixels_tab[1][0](dst, p, stride, 8);
@@ -309,6 +310,7 @@ static int mimic_decode_frame(AVCodecContext *avctx, void *data,
     int width, height;
     int quality, num_coeffs;
     int swap_buf_size = buf_size - MIMIC_HEADER_SIZE;
+    int res;
 
     if(buf_size < MIMIC_HEADER_SIZE) {
         av_log(avctx, AV_LOG_ERROR, "insufficient data\n");
@@ -376,10 +378,10 @@ static int mimic_decode_frame(AVCodecContext *avctx, void *data,
                         swap_buf_size>>2);
     init_get_bits(&ctx->gb, ctx->swap_buf, swap_buf_size << 3);
 
-    if(!decode(ctx, quality, num_coeffs, !is_pframe)) {
-        if (avctx->active_thread_type&FF_THREAD_FRAME)
-            ff_thread_report_progress(&ctx->buf_ptrs[ctx->cur_index], INT_MAX, 0);
-        else {
+    res = decode(ctx, quality, num_coeffs, !is_pframe);
+    ff_thread_report_progress(&ctx->buf_ptrs[ctx->cur_index], INT_MAX, 0);
+    if (!res) {
+        if (!(avctx->active_thread_type & FF_THREAD_FRAME)) {
             ff_thread_release_buffer(avctx, &ctx->buf_ptrs[ctx->cur_index]);
             return -1;
         }
@@ -405,26 +407,26 @@ static av_cold int mimic_decode_end(AVCodecContext *avctx)
 
     av_free(ctx->swap_buf);
 
-    if(avctx->is_copy) return 0;
+    if (avctx->internal->is_copy)
+        return 0;
 
     for(i = 0; i < 16; i++)
         if(ctx->buf_ptrs[i].data[0])
             ff_thread_release_buffer(avctx, &ctx->buf_ptrs[i]);
-    free_vlc(&ctx->vlc);
+    ff_free_vlc(&ctx->vlc);
 
     return 0;
 }
 
 AVCodec ff_mimic_decoder = {
-    "mimic",
-    AVMEDIA_TYPE_VIDEO,
-    CODEC_ID_MIMIC,
-    sizeof(MimicContext),
-    mimic_decode_init,
-    NULL,
-    mimic_decode_end,
-    mimic_decode_frame,
-    CODEC_CAP_DR1 | CODEC_CAP_FRAME_THREADS,
+    .name           = "mimic",
+    .type           = AVMEDIA_TYPE_VIDEO,
+    .id             = CODEC_ID_MIMIC,
+    .priv_data_size = sizeof(MimicContext),
+    .init           = mimic_decode_init,
+    .close          = mimic_decode_end,
+    .decode         = mimic_decode_frame,
+    .capabilities   = CODEC_CAP_DR1 | CODEC_CAP_FRAME_THREADS,
     .long_name = NULL_IF_CONFIG_SMALL("Mimic"),
     .update_thread_context = ONLY_IF_THREADS_ENABLED(mimic_decode_update_thread_context)
 };

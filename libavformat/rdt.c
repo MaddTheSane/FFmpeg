@@ -2,20 +2,20 @@
  * Realmedia RTSP protocol (RDT) support.
  * Copyright (c) 2007 Ronald S. Bultje
  *
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
@@ -459,8 +459,9 @@ add_dstream(AVFormatContext *s, AVStream *orig_st)
 {
     AVStream *st;
 
-    if (!(st = av_new_stream(s, orig_st->id)))
+    if (!(st = avformat_new_stream(s, NULL)))
         return NULL;
+    st->id = orig_st->id;
     st->codec->codec_type = orig_st->codec->codec_type;
     st->first_dts         = orig_st->first_dts;
 
@@ -483,7 +484,7 @@ real_parse_asm_rulebook(AVFormatContext *s, AVStream *orig_st,
      * is set and once for if it isn't. We only read the first because we
      * don't care much (that's what the "odd" variable is for).
      * Each rule contains a set of one or more statements, optionally
-     * preceeded by a single condition. If there's a condition, the rule
+     * preceded by a single condition. If there's a condition, the rule
      * starts with a '#'. Multiple conditions are merged between brackets,
      * so there are never multiple conditions spread out over separate
      * statements. Generally, these conditions are bitrate limits (min/max)
@@ -523,7 +524,11 @@ rdt_new_context (void)
 {
     PayloadContext *rdt = av_mallocz(sizeof(PayloadContext));
 
-    avformat_open_input(&rdt->rmctx, "", &ff_rdt_demuxer, NULL);
+    int ret = avformat_open_input(&rdt->rmctx, "", &ff_rdt_demuxer, NULL);
+    if (ret < 0) {
+        av_free(rdt);
+        return NULL;
+    }
 
     return rdt;
 }
@@ -539,7 +544,7 @@ rdt_free_context (PayloadContext *rdt)
             av_freep(&rdt->rmst[i]);
         }
     if (rdt->rmctx)
-        av_close_input_file(rdt->rmctx);
+        avformat_close_input(&rdt->rmctx);
     av_freep(&rdt->mlti_data);
     av_freep(&rdt->rmst);
     av_free(rdt);

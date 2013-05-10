@@ -3,20 +3,20 @@
  *
  * Copyright (c) 2009 Benjamin Larsson
  *
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
@@ -57,7 +57,7 @@ static int aea_read_probe(AVProbeData *p)
 static int aea_read_header(AVFormatContext *s,
                            AVFormatParameters *ap)
 {
-    AVStream *st = av_new_stream(s, 0);
+    AVStream *st = avformat_new_stream(s, NULL);
     if (!st)
         return AVERROR(ENOMEM);
 
@@ -95,14 +95,12 @@ static int aea_read_packet(AVFormatContext *s, AVPacket *pkt)
 }
 
 AVInputFormat ff_aea_demuxer = {
-    "aea",
-    NULL_IF_CONFIG_SMALL("MD STUDIO audio"),
-    0,
-    aea_read_probe,
-    aea_read_header,
-    aea_read_packet,
-    0,
-    pcm_read_seek,
+    .name           = "aea",
+    .long_name      = NULL_IF_CONFIG_SMALL("MD STUDIO audio"),
+    .read_probe     = aea_read_probe,
+    .read_header    = aea_read_header,
+    .read_packet    = aea_read_packet,
+    .read_seek      = pcm_read_seek,
     .flags= AVFMT_GENERIC_INDEX,
     .extensions = "aea",
 };

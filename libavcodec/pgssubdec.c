@@ -2,20 +2,20 @@
  * PGS subtitle decoder
  * Copyright (c) 2009 Stephen Backway
  *
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
@@ -198,7 +198,7 @@ static int parse_picture_segment(AVCodecContext *avctx,
 
     /* Make sure the bitmap is not too large */
     if (avctx->width < width || avctx->height < height) {
-        av_log(avctx, AV_LOG_ERROR, "Bitmap dimensions larger then video.\n");
+        av_log(avctx, AV_LOG_ERROR, "Bitmap dimensions larger than video.\n");
         return -1;
     }
 
@@ -355,6 +355,7 @@ static int display_end_segment(AVCodecContext *avctx, void *data,
      *      not been cleared by a subsequent empty display command.
      */
 
+    memset(sub, 0, sizeof(*sub));
     // Blank if last object_number was 0.
     // Note that this may be wrong for more complex subtitles.
     if (!ctx->presentation.object_number)
@@ -468,13 +469,12 @@ static int decode(AVCodecContext *avctx, void *data, int *data_size,
 }
 
 AVCodec ff_pgssub_decoder = {
-    "pgssub",
-    AVMEDIA_TYPE_SUBTITLE,
-    CODEC_ID_HDMV_PGS_SUBTITLE,
-    sizeof(PGSSubContext),
-    init_decoder,
-    NULL,
-    close_decoder,
-    decode,
+    .name           = "pgssub",
+    .type           = AVMEDIA_TYPE_SUBTITLE,
+    .id             = CODEC_ID_HDMV_PGS_SUBTITLE,
+    .priv_data_size = sizeof(PGSSubContext),
+    .init           = init_decoder,
+    .close          = close_decoder,
+    .decode         = decode,
     .long_name = NULL_IF_CONFIG_SMALL("HDMV Presentation Graphic Stream subtitles"),
 };

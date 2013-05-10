@@ -1,20 +1,20 @@
 /*
  * copyright (c) 2006 Michael Niedermayer <michaelni@gmx.at>
  *
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
@@ -23,13 +23,14 @@
 
 #include <stdarg.h>
 #include "avutil.h"
+#include "attributes.h"
 
 /**
  * Describe the class of an AVClass context structure. That is an
  * arbitrary struct of which the first field is a pointer to an
  * AVClass struct (e.g. AVCodecContext, AVFormatContext etc.).
  */
-typedef struct {
+typedef struct AVClass {
     /**
      * The name of the class; usually it is the same name as the
      * context structure type to which the AVClass is associated.
@@ -72,11 +73,19 @@ typedef struct {
     int parent_log_context_offset;
 
     /**
-     * A function for extended searching, e.g. in possible
-     * children objects.
+     * Return next AVOptions-enabled child or NULL
      */
-    const struct AVOption* (*opt_find)(void *obj, const char *name, const char *unit,
-                                       int opt_flags, int search_flags);
+    void* (*child_next)(void *obj, void *prev);
+
+    /**
+     * Return an AVClass corresponding to next potential
+     * AVOptions-enabled child.
+     *
+     * The difference between child_next and this is that
+     * child_next iterates over _already existing_ objects, while
+     * child_class_next iterates over _all possible_ children.
+     */
+    const struct AVClass* (*child_class_next)(const struct AVClass *prev);
 } AVClass;
 
 /* av_log API */
@@ -129,11 +138,7 @@ typedef struct {
  * subsequent arguments are converted to output.
  * @see av_vlog
  */
-#ifdef __GNUC__
-void av_log(void *avcl, int level, const char *fmt, ...) __attribute__ ((__format__ (__printf__, 3, 4)));
-#else
-void av_log(void *avcl, int level, const char *fmt, ...);
-#endif
+void av_log(void *avcl, int level, const char *fmt, ...) av_printf_format(3, 4);
 
 void av_vlog(void *avcl, int level, const char *fmt, va_list);
 int av_log_get_level(void);
@@ -150,7 +155,7 @@ const char* av_default_item_name(void* ctx);
 #ifdef DEBUG
 #    define av_dlog(pctx, ...) av_log(pctx, AV_LOG_DEBUG, __VA_ARGS__)
 #else
-#    define av_dlog(pctx, ...) do { if (0) av_log(pctx, AV_LOG_DEBUG, __VA_ARGS__); } while (0)
+#    define av_dlog(pctx, ...)
 #endif
 
 /**
@@ -159,7 +164,7 @@ const char* av_default_item_name(void* ctx);
  * "Last message repeated x times" messages below (f)printf messages with some
  * bad luck.
  * Also to receive the last, "last repeated" line if any, the user app must
- * call av_log(NULL, AV_LOG_QUIET, "%s", ""); at the end
+ * call av_log(NULL, AV_LOG_QUIET, ""); at the end
  */
 #define AV_LOG_SKIP_REPEATED 1
 void av_log_set_flags(int arg);

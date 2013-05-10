@@ -4,20 +4,20 @@
  *
  * VC-3 encoder funded by the British Broadcasting Corporation
  *
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
@@ -52,8 +52,12 @@ typedef struct DNXHDEncContext {
 
     struct DNXHDEncContext *thread[MAX_THREADS];
 
+    // Because our samples are either 8 or 16 bits for 8-bit and 10-bit
+    // encoding respectively, these refer either to bytes or to two-byte words.
     unsigned dct_y_offset;
     unsigned dct_uv_offset;
+    unsigned block_width_l2;
+
     int interlaced;
     int cur_field;
 

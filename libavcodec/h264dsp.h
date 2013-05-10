@@ -1,20 +1,20 @@
 /*
  * Copyright (c) 2003-2010 Michael Niedermayer <michaelni@gmx.at>
  *
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
@@ -31,16 +31,18 @@
 #include "dsputil.h"
 
 //typedef void (*h264_chroma_mc_func)(uint8_t *dst/*align 8*/, uint8_t *src/*align 1*/, int srcStride, int h, int x, int y);
-typedef void (*h264_weight_func)(uint8_t *block, int stride, int log2_denom, int weight, int offset);
-typedef void (*h264_biweight_func)(uint8_t *dst, uint8_t *src, int stride, int log2_denom, int weightd, int weights, int offset);
+typedef void (*h264_weight_func)(uint8_t *block, int stride, int height,
+                                 int log2_denom, int weight, int offset);
+typedef void (*h264_biweight_func)(uint8_t *dst, uint8_t *src, int stride, int height,
+                                   int log2_denom, int weightd, int weights, int offset);
 
 /**
  * Context for storing H.264 DSP functions
  */
 typedef struct H264DSPContext{
     /* weighted MC */
-    h264_weight_func weight_h264_pixels_tab[10];
-    h264_biweight_func biweight_h264_pixels_tab[10];
+    h264_weight_func weight_h264_pixels_tab[4];
+    h264_biweight_func biweight_h264_pixels_tab[4];
 
     /* loop filter */
     void (*h264_v_loop_filter_luma)(uint8_t *pix/*align 16*/, int stride, int alpha, int beta, int8_t *tc0);
@@ -74,9 +76,9 @@ typedef struct H264DSPContext{
     void (*h264_chroma_dc_dequant_idct)(DCTELEM *block, int qmul);
 }H264DSPContext;
 
-void ff_h264dsp_init(H264DSPContext *c, const int bit_depth);
-void ff_h264dsp_init_arm(H264DSPContext *c, const int bit_depth);
-void ff_h264dsp_init_ppc(H264DSPContext *c, const int bit_depth);
-void ff_h264dsp_init_x86(H264DSPContext *c, const int bit_depth);
+void ff_h264dsp_init(H264DSPContext *c, const int bit_depth, const int chroma_format_idc);
+void ff_h264dsp_init_arm(H264DSPContext *c, const int bit_depth, const int chroma_format_idc);
+void ff_h264dsp_init_ppc(H264DSPContext *c, const int bit_depth, const int chroma_format_idc);
+void ff_h264dsp_init_x86(H264DSPContext *c, const int bit_depth, const int chroma_format_idc);
 
 #endif /* AVCODEC_H264DSP_H */

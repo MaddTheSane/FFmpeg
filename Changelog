@@ -1,28 +1,217 @@
 Entries are sorted chronologically from oldest to youngest within each release,
 releases are sorted from youngest to oldest.
 
+version 0.8.4:
 
-version 0.7.1:
+- Several bugs and crashes have been fixed in the following codecs:
+  h264 (Bug 118), vc1dec (CVE-2012-2796), sipr, bmpdec (bug 367), alsdec
+  (CVE-2012-2775), rv34/rv40 (CVE-2012-2772), indeo3/indeo4
+  (CVE-2012-2776, CVE-2012-2779, CVE-2012-2787, CVE-2012-2794,
+  CVE-2012-2800), vorbisenc, vorbisdec (Bug 277), snow, ac3dec
+  (CVE-2012-2802), avsdec (CVE-2012-2801), dfa (CVE-2012-2786,
+  CVE-2012-2798), lagrith (CVE-2012-2793), wmaprodec (CVE-2012-2789 &
+  Bug 327), avidec (CVE-2012-2788, CVE-2012-2790), cavsdec
+  (CVE-2012-2777, CVE-2012-2784), wav (Bug 379), yuff4mpeg (Bug 373),
+  mpegaudio, tiffenc, smacker (Bug 265).
 
-- added various additional FOURCC codec identifiers
-- H.264 4:4:4 fixes
-- build system and compilation fixes
-- Doxygen and general documentation corrections and improvements
-- fixed segfault in ffprobe
-- behavioral fix in av_open_input_stream()
-- Licensing clarification for LGPL'ed vf_gradfun
-- bugfixes while seeking in multithreaded decoding
-- support newer versions of OpenCV
-- ffmpeg: fix operation with --disable-avfilter
-- fixed integer underflow in matroska decoder
+- smaller bug fixes in avconv (Bug 352)
+
+- fix lt() and lte() in function evaluator
+
+- fix segfault in avformat_open_input()
+
+- fix segfault in golomb decoder (bug 310)
+
+- fix segfault (double free) in libavfilter
+
+- convert dfa decoder to bytestream2 API to protect from overreads
+
+- bugfix in vf_pad/scale filter (Bug 203 & 245)
+
+- lavc: remove stats_out and stats_in from the options table. (Bug 380)
+
+
+version 0.8.3:
+
+- Several bugs and crashes have been fixed in the following codecs: PNG,
+  Electronic Arts TQI, H.264 (CVE-2012-0851) and H.263 (CVE-2011-3937)
+
+
+version 0.8.2:
+
+- Several bugs and crashes have been fixed in the following codecs: AAC,
+  APE, H.263, H.264, Indeo 4, Mimic, MJPEG, Motion Pixels Video, RAW,
+  TTA, VC1, VQA, WMA Voice, vqavideo (CVE-2012-0947).
+
+- Several bugs and crashes have been fixed in the following formats:
+  ASF, ID3v2, MOV, xWMA
+
+- This release additionally updates the following codecs to the
+  bytestream2 API, and therefore benefit from additional overflow
+  checks: truemotion2, utvideo, vqavideo
+
+
+version 0.8.1:
+
+- Several bugs and crashes have been fixed in the following codecs: AAC,
+  AC-3, ADPCM, AMR (both NB and WB), ATRAC3, CAVC, Cook, camstudio, DCA,
+  DPCM, DSI CIN, DV, EA TGQ, FLAC, fraps, G.722 (both encoder and
+  decoder), H.264, huvffyuv, BB JV decoder, Indeo 3, KGV1, LCL, the
+  libx264 wrapper, MJPEG, mp3on4, Musepack, MPEG1/2, PNG, QDM2, Qt RLE,
+  ROQ, RV10, RV30/RV34/RV40, shorten, smacker, subrip, SVQ3, TIFF,
+  Truemotion2, TTA, VC1, VMware Screen codec, Vorbis, VP5, VP6, WMA,
+  Westwood SNDx, XXAN.
+
+- This release additionally updates the following codecs to the
+  bytestream2 API, and therefore benefit from additional overflow
+  checks: XXAN, ALG MM, TQG, SMC, Qt SMC, ROQ, PNG
+
+- Several bugs and crashes have been fixed in the following formats:
+  AIFF, ASF, DV, Matroska, NSV, MOV, MPEG-TS, Smacker, Sony OpenMG, RM,
+  SWF.
+
+- Libswscale has an potential overflow for large image size fixed.
+
+- The following APIs have been added:
+
+  avcodec_is_open()
+  avformat_get_riff_video_tags()
+  avformat_get_riff_audio_tags()
+
+  Please see the file doc/APIchanges and the Doxygen documentation for
+  further information.
+
+
+version 0.8:
+
+- GSM audio parser
+- SMJPEG muxer
+
+
+version 0.8_beta2:
+
+- Automatic thread count based on detection number of (available) CPU cores
+- Deprecate libpostproc. If desired, the switch --enable-postproc will
+  enable it but it may be removed in a later Libav release.
+- rv34: frame-level multi-threading
+- optimized iMDCT transform on x86 using SSE for for mpegaudiodec
+
+
+version 0.8_beta1:
+
+- BWF muxer
+- Flash Screen Video 2 decoder
+- ffplay/ffprobe/ffserver renamed to avplay/avprobe/avserver
+- ffmpeg deprecated, added avconv, which is almost the same for now, except
+for a few incompatible changes in the options, which will hopefully make them
+easier to use. The changes are:
+    * The options placement is now strictly enforced! While in theory the
+      options for ffmpeg should be given in [input options] -i INPUT [output
+      options] OUTPUT order, in practice it was possible to give output options
+      before the -i and it mostly worked. Except when it didn't - the behavior was
+      a bit inconsistent. In avconv, it is not possible to mix input and output
+      options. All non-global options are reset after an input or output filename.
+    * All per-file options are now truly per-file - they apply only to the next
+      input or output file and specifying different values for different files
+      will now work properly (notably -ss and -t options).
+    * All per-stream options are now truly per-stream - it is possible to
+      specify which stream(s) should a given option apply to. See the Stream
+      specifiers section in the avconv manual for details.
+    * In ffmpeg some options (like -newvideo/-newaudio/...) are irregular in the
+      sense that they're specified after the output filename instead of before,
+      like all other options. In avconv this irregularity is removed, all options
+      apply to the next input or output file.
+    * -newvideo/-newaudio/-newsubtitle options were removed. Not only were they
+      irregular and highly confusing, they were also redundant. In avconv the -map
+      option will create new streams in the output file and map input streams to
+      them. E.g. avconv -i INPUT -map 0 OUTPUT will create an output stream for
+      each stream in the first input file.
+    * The -map option now has slightly different and more powerful syntax:
+        + Colons (':') are used to separate file index/stream type/stream index
+          instead of dots. Comma (',') is used to separate the sync stream instead
+          of colon.. This is done for consistency with other options.
+        + It's possible to specify stream type. E.g. -map 0:a:2 creates an
+          output stream from the third input audio stream.
+        + Omitting the stream index now maps all the streams of the given type,
+          not just the first. E.g. -map 0:s creates output streams for all the
+          subtitle streams in the first input file.
+        + Since -map can now match multiple streams, negative mappings were
+          introduced. Negative mappings disable some streams from an already
+          defined map. E.g. '-map 0 -map -0:a:1' means 'create output streams for
+          all the stream in the first input file, except for the second audio
+          stream'.
+    * There is a new option -c (or -codec) for choosing the decoder/encoder to
+      use, which allows to precisely specify target stream(s) consistently with
+      other options. E.g. -c:v lib264 sets the codec for all video streams, -c:a:0
+      libvorbis sets the codec for the first audio stream and -c copy copies all
+      the streams without reencoding. Old -vcodec/-acodec/-scodec options are now
+      aliases to -c:v/a/s
+    * It is now possible to precisely specify which stream should an AVOption
+      apply to. E.g. -b:v:0 2M sets the bitrate for the first video stream, while
+      -b:a 128k sets the bitrate for all audio streams. Note that the old -ab 128k
+      syntax is deprecated and will stop working soon.
+    * -map_chapters now takes only an input file index and applies to the next
+      output file. This is consistent with how all the other options work.
+    * -map_metadata now takes only an input metadata specifier and applies to
+      the next output file. Output metadata specifier is now part of the option
+      name, similarly to the AVOptions/map/codec feature above.
+    * -metadata can now be used to set metadata on streams and chapters, e.g.
+      -metadata:s:1 language=eng sets the language of the first stream to 'eng'.
+      This made -vlang/-alang/-slang options redundant, so they were removed.
+    * -qscale option now uses stream specifiers and applies to all streams, not
+      just video. I.e. plain -qscale number would now apply to all streams. To get
+      the old behavior, use -qscale:v. Also there is now a shortcut -q for -qscale
+      and -aq is now an alias for -q:a.
+    * -vbsf/-absf/-sbsf options were removed and replaced by a -bsf option which
+      uses stream specifiers. Use -bsf:v/a/s instead of the old options.
+    * -itsscale option now uses stream specifiers, so its argument is only the
+      scale parameter.
+    * -intra option was removed, use -g 0 for the same effect.
+    * -psnr option was removed, use -flags +psnr for the same effect.
+    * -vf option is now an alias to the new -filter option, which uses stream specifiers.
+    * -vframes/-aframes/-dframes options are now aliases to the new -frames option.
+    * -vtag/-atag/-stag options are now aliases to the new -tag option.
+- XMV demuxer
+- Windows Media Image decoder
+- LATM muxer/demuxer
+- showinfo filter
+- split filter
+- libcdio-paranoia input device for audio CD grabbing
+- select filter
+- Apple ProRes decoder
+- CELT in Ogg demuxing
+- VC-1 interlaced decoding
+- lut, lutrgb, and lutyuv filters
+- boxblur filter
+- Ut Video decoder
+- Speex encoding via libspeex
+- 4:2:2 H.264 decoding support
+- 4:2:2 and 4:4:4 H.264 encoding with libx264
+- Pulseaudio input device
+- replacement Indeo 3 decoder
+- TLS/SSL and HTTPS protocol support
+- AVOptions API rewritten and documented
+- most of CODEC_FLAG2_*, some CODEC_FLAG_* and many codec-specific fields in
+  AVCodecContext deprecated. Codec private options should be used instead.
+- Properly working defaults in libx264 wrapper, support for native presets.
+- Encrypted OMA files support
+- Discworld II BMV decoding support
+- VBLE Decoder
+- OS X Video Decoder Acceleration (VDA) support
+- CRI ADX audio format muxer and demuxer
+- Playstation Portable PMP format demuxer
+- PCM format support in OMA demuxer
+- CLJR encoder
+- Dxtory capture format decoder
+- v410 QuickTime uncompressed 4:4:4 10-bit encoder and decoder
+- OpenMG Audio muxer
+- Simple segmenting muxer
+- Indeo 4 decoder
+- SMJPEG demuxer
+
 
 version 0.7:
 
-- many many things we forgot because we rather write code than changelogs
-- libmpcodecs video filter support (3 times as many filters than before)
-- mpeg2 aspect ratio dection fixed
-- libxvid aspect pickiness fixed
-- Frame multithreaded decoding
 - E-AC-3 audio encoder
 - ac3enc: add channel coupling support
 - floating-point sample format support for (E-)AC-3, DCA, AAC, Vorbis decoders
@@ -30,8 +219,6 @@ version 0.7:
 - av_metadata_* functions renamed to av_dict_* and moved to libavutil
 - 4:4:4 H.264 decoding support
 - 10-bit H.264 optimizations for x86
-- lut, lutrgb, and lutyuv filters added
-- buffersink libavfilter sink added
 - bump libswscale for recently reported ABI break
 
 
@@ -41,15 +228,10 @@ version 0.7_beta2:
 - NEON optimizations for VP8
 - removed a lot of deprecated API cruft
 - FFT and IMDCT optimizations for AVX (Sandy Bridge) processors
-- showinfo filter added
 - DPX image encoder
 - SMPTE 302M AES3 audio decoder
-- Apple Core Audio Format muxer
+- ffmpeg no longer quits after the 'q' key is pressed; use 'ctrl+c' instead
 - 9bit and 10bit per sample support in the H.264 decoder
-- 9bit and 10bit FFV1 encoding / decoding
-- split filter added
-- select filter added
-- sdl output device added
 
 
 version 0.7_beta1:
@@ -72,7 +254,6 @@ version 0.7_beta1:
 - RTP depacketization of QDM2
 - ANSI/ASCII art playback system
 - Lego Mindstorms RSO de/muxer
-- libavcore added
 - SubRip subtitle file muxer and demuxer
 - Chinese AVS encoding via libxavs
 - ffprobe -show_packets option added
@@ -119,7 +300,7 @@ version 0.7_beta1:
 - replace the ocv_smooth filter with a more generic ocv filter
 - Windows Televison (WTV) demuxer
 - FFmpeg metadata format muxer and demuxer
-- SubRip (srt) subtitle encoder and decoder
+- SubRip (srt) subtitle decoder
 - floating-point AC-3 encoder added
 - Lagarith decoder
 - ffmpeg -copytb option added
@@ -132,14 +313,11 @@ version 0.7_beta1:
 - sndio support for playback and record
 - Linux framebuffer input device added
 - Chronomaster DFA decoder
-- DPX image encoder
-- MicroDVD subtitle file muxer and demuxer
-- Playstation Portable PMP format demuxer
-- fieldorder video filter added
+- Mobotix MxPEG decoder
 - AAC encoding via libvo-aacenc
 - AMR-WB encoding via libvo-amrwbenc
 - xWMA demuxer
-- Mobotix MxPEG decoder
+- fieldorder video filter added
 
 
 version 0.6:
@@ -380,7 +558,6 @@ version 0.5:
 - Gopher client support
 - MXF D-10 muxer
 - generic metadata API
-- flash ScreenVideo2 encoder
 
 
 version 0.4.9-pre1:

@@ -3,20 +3,20 @@
  * Copyright (c) 2006, 2007 Michel Bardiaux
  * Copyright (c) 2009 Daniel Verkamp <daniel at drv.nu>
  *
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
@@ -27,6 +27,7 @@
 
 static const uint32_t monoblack_pal[] = { 0x000000, 0xFFFFFF };
 static const uint32_t rgb565_masks[]  = { 0xF800, 0x07E0, 0x001F };
+static const uint32_t rgb444_masks[]  = { 0x0F00, 0x00F0, 0x000F };
 
 static av_cold int bmp_encode_init(AVCodecContext *avctx){
     BMPContext *s = avctx->priv_data;
@@ -39,9 +40,8 @@ static av_cold int bmp_encode_init(AVCodecContext *avctx){
         avctx->bits_per_coded_sample = 24;
         break;
     case PIX_FMT_RGB555:
-        avctx->bits_per_coded_sample = 16;
-        break;
     case PIX_FMT_RGB565:
+    case PIX_FMT_RGB444:
         avctx->bits_per_coded_sample = 16;
         break;
     case PIX_FMT_RGB8:
@@ -77,6 +77,11 @@ static int bmp_encode_frame(AVCodecContext *avctx, unsigned char *buf, int buf_s
     p->pict_type= AV_PICTURE_TYPE_I;
     p->key_frame= 1;
     switch (avctx->pix_fmt) {
+    case PIX_FMT_RGB444:
+        compression = BMP_BITFIELDS;
+        pal = rgb444_masks; // abuse pal to hold color masks
+        pal_entries = 3;
+        break;
     case PIX_FMT_RGB565:
         compression = BMP_BITFIELDS;
         pal = rgb565_masks; // abuse pal to hold color masks
@@ -150,16 +155,15 @@ static int bmp_encode_frame(AVCodecContext *avctx, unsigned char *buf, int buf_s
 }
 
 AVCodec ff_bmp_encoder = {
-    "bmp",
-    AVMEDIA_TYPE_VIDEO,
-    CODEC_ID_BMP,
-    sizeof(BMPContext),
-    bmp_encode_init,
-    bmp_encode_frame,
-    NULL, //encode_end,
+    .name           = "bmp",
+    .type           = AVMEDIA_TYPE_VIDEO,
+    .id             = CODEC_ID_BMP,
+    .priv_data_size = sizeof(BMPContext),
+    .init           = bmp_encode_init,
+    .encode         = bmp_encode_frame,
     .pix_fmts = (const enum PixelFormat[]){
         PIX_FMT_BGR24,
-        PIX_FMT_RGB555, PIX_FMT_RGB565,
+        PIX_FMT_RGB555, PIX_FMT_RGB444, PIX_FMT_RGB565,
         PIX_FMT_RGB8, PIX_FMT_BGR8, PIX_FMT_RGB4_BYTE, PIX_FMT_BGR4_BYTE, PIX_FMT_GRAY8, PIX_FMT_PAL8,
         PIX_FMT_MONOBLACK,
         PIX_FMT_NONE},

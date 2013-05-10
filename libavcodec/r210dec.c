@@ -3,20 +3,20 @@
  *
  * Copyright (c) 2009 Reimar Doeffinger <Reimar.Doeffinger@gmx.de>
  *
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
@@ -98,29 +98,25 @@ static av_cold int decode_close(AVCodecContext *avctx)
 
 #if CONFIG_R210_DECODER
 AVCodec ff_r210_decoder = {
-    "r210",
-    AVMEDIA_TYPE_VIDEO,
-    CODEC_ID_R210,
-    0,
-    decode_init,
-    NULL,
-    decode_close,
-    decode_frame,
-    CODEC_CAP_DR1,
+    .name           = "r210",
+    .type           = AVMEDIA_TYPE_VIDEO,
+    .id             = CODEC_ID_R210,
+    .init           = decode_init,
+    .close          = decode_close,
+    .decode         = decode_frame,
+    .capabilities   = CODEC_CAP_DR1,
     .long_name = NULL_IF_CONFIG_SMALL("Uncompressed RGB 10-bit"),
 };
 #endif
 #if CONFIG_R10K_DECODER
 AVCodec ff_r10k_decoder = {
-    "r10k",
-    AVMEDIA_TYPE_VIDEO,
-    CODEC_ID_R10K,
-    0,
-    decode_init,
-    NULL,
-    decode_close,
-    decode_frame,
-    CODEC_CAP_DR1,
+    .name           = "r10k",
+    .type           = AVMEDIA_TYPE_VIDEO,
+    .id             = CODEC_ID_R10K,
+    .init           = decode_init,
+    .close          = decode_close,
+    .decode         = decode_frame,
+    .capabilities   = CODEC_CAP_DR1,
     .long_name = NULL_IF_CONFIG_SMALL("AJA Kona 10-bit RGB Codec"),
 };
 #endif

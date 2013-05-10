@@ -1,20 +1,20 @@
 /*
  * Copyright (c) 2006 Paul Richards <paul.richards@gmail.com>
  *
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
@@ -30,7 +30,7 @@
  * and o_ prefixes on variables which are libogg types.
  */
 
-/* FFmpeg includes */
+/* Libav includes */
 #include "libavutil/intreadwrite.h"
 #include "libavutil/log.h"
 #include "libavutil/base64.h"
@@ -241,7 +241,7 @@ static av_cold int encode_init(AVCodecContext* avc_context)
         header, comment, and tables.
 
         Each one is prefixed with a 16bit size, then they
-        are concatenated together into ffmpeg's extradata.
+        are concatenated together into libavcodec's extradata.
     */
     offset = 0;
 

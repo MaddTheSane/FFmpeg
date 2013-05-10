@@ -2,24 +2,25 @@
  * Interplay C93 demuxer
  * Copyright (c) 2007 Anssi Hannula <anssi.hannula@gmail.com>
  *
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include "avformat.h"
+#include "internal.h"
 #include "voc.h"
 #include "libavutil/intreadwrite.h"
 
@@ -79,7 +80,7 @@ static int read_header(AVFormatContext *s,
     /* Audio streams are added if audio packets are found */
     s->ctx_flags |= AVFMTCTX_NOHEADER;
 
-    video = av_new_stream(s, 0);
+    video = avformat_new_stream(s, NULL);
     if (!video)
         return AVERROR(ENOMEM);
 
@@ -89,7 +90,7 @@ static int read_header(AVFormatContext *s,
     video->codec->height = 192;
     /* 4:3 320x200 with 8 empty lines */
     video->sample_aspect_ratio = (AVRational) { 5, 6 };
-    av_set_pts_info(video, 64, 2, 25);
+    avpriv_set_pts_info(video, 64, 2, 25);
     video->nb_frames = framecount;
     video->duration = framecount;
     video->start_time = 0;
@@ -117,7 +118,7 @@ static int read_packet(AVFormatContext *s, AVPacket *pkt)
         datasize = avio_rl16(pb);
         if (datasize > 42) {
             if (!c93->audio) {
-                c93->audio = av_new_stream(s, 1);
+                c93->audio = avformat_new_stream(s, NULL);
                 if (!c93->audio)
                     return AVERROR(ENOMEM);
                 c93->audio->codec->codec_type = AVMEDIA_TYPE_AUDIO;
@@ -193,10 +194,10 @@ static int read_packet(AVFormatContext *s, AVPacket *pkt)
 }
 
 AVInputFormat ff_c93_demuxer = {
-    "c93",
-    NULL_IF_CONFIG_SMALL("Interplay C93"),
-    sizeof(C93DemuxContext),
-    probe,
-    read_header,
-    read_packet,
+    .name           = "c93",
+    .long_name      = NULL_IF_CONFIG_SMALL("Interplay C93"),
+    .priv_data_size = sizeof(C93DemuxContext),
+    .read_probe     = probe,
+    .read_header    = read_header,
+    .read_packet    = read_packet,
 };

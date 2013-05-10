@@ -2,20 +2,20 @@
  * XVideo Motion Compensation
  * Copyright (c) 2003 Ivan Kalvachev
  *
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
@@ -41,7 +41,7 @@
  */
 void ff_xvmc_init_block(MpegEncContext *s)
 {
-    struct xvmc_pix_fmt *render = (struct xvmc_pix_fmt*)s->current_picture.data[2];
+    struct xvmc_pix_fmt *render = (struct xvmc_pix_fmt*)s->current_picture.f.data[2];
     assert(render && render->xvmc_id == AV_XVMC_ID);
 
     s->block = (DCTELEM (*)[64])(render->data_blocks + render->next_free_data_block_num * 64);
@@ -73,7 +73,7 @@ void ff_xvmc_pack_pblocks(MpegEncContext *s, int cbp)
  */
 int ff_xvmc_field_start(MpegEncContext *s, AVCodecContext *avctx)
 {
-    struct xvmc_pix_fmt *last, *next, *render = (struct xvmc_pix_fmt*)s->current_picture.data[2];
+    struct xvmc_pix_fmt *last, *next, *render = (struct xvmc_pix_fmt*)s->current_picture.f.data[2];
     const int mb_block_count = 4 + (1 << s->chroma_format);
 
     assert(avctx);
@@ -113,7 +113,7 @@ int ff_xvmc_field_start(MpegEncContext *s, AVCodecContext *avctx)
         case  AV_PICTURE_TYPE_I:
             return 0; // no prediction from other frames
         case  AV_PICTURE_TYPE_B:
-            next = (struct xvmc_pix_fmt*)s->next_picture.data[2];
+            next = (struct xvmc_pix_fmt*)s->next_picture.f.data[2];
             if (!next)
                 return -1;
             if (next->xvmc_id != AV_XVMC_ID)
@@ -121,7 +121,7 @@ int ff_xvmc_field_start(MpegEncContext *s, AVCodecContext *avctx)
             render->p_future_surface = next->p_surface;
             // no return here, going to set forward prediction
         case  AV_PICTURE_TYPE_P:
-            last = (struct xvmc_pix_fmt*)s->last_picture.data[2];
+            last = (struct xvmc_pix_fmt*)s->last_picture.f.data[2];
             if (!last)
                 last = render; // predict second field from the first
             if (last->xvmc_id != AV_XVMC_ID)
@@ -141,7 +141,7 @@ return -1;
  */
 void ff_xvmc_field_end(MpegEncContext *s)
 {
-    struct xvmc_pix_fmt *render = (struct xvmc_pix_fmt*)s->current_picture.data[2];
+    struct xvmc_pix_fmt *render = (struct xvmc_pix_fmt*)s->current_picture.f.data[2];
     assert(render);
 
     if (render->filled_mv_blocks_num > 0)
@@ -179,10 +179,10 @@ void ff_xvmc_decode_mb(MpegEncContext *s)
 
     // Do I need to export quant when I could not perform postprocessing?
     // Anyway, it doesn't hurt.
-    s->current_picture.qscale_table[mb_xy] = s->qscale;
+    s->current_picture.f.qscale_table[mb_xy] = s->qscale;
 
     // start of XVMC-specific code
-    render = (struct xvmc_pix_fmt*)s->current_picture.data[2];
+    render = (struct xvmc_pix_fmt*)s->current_picture.f.data[2];
     assert(render);
     assert(render->xvmc_id == AV_XVMC_ID);
     assert(render->mv_blocks);

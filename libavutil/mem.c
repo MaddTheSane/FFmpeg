@@ -2,20 +2,20 @@
  * default memory allocator for libavutil
  * Copyright (c) 2002 Fabrice Bellard
  *
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
@@ -23,8 +23,6 @@
  * @file
  * default memory allocator for libavutil
  */
-
-#define _XOPEN_SOURCE 600
 
 #include "config.h"
 
@@ -59,13 +57,9 @@ void  free(void *ptr);
 
 #endif /* MALLOC_PREFIX */
 
-#define ALIGN (HAVE_AVX ? 32 : 16)
-
 /* You can redefine av_malloc and av_free in your project to use your
    memory allocator. You do not need to suppress this file because the
    linker will do it automatically. */
-
-#define MAX_MALLOC_SIZE INT_MAX
 
 void *av_malloc(size_t size)
 {
@@ -75,22 +69,21 @@ void *av_malloc(size_t size)
 #endif
 
     /* let's disallow possible ambiguous cases */
-    if (size > (MAX_MALLOC_SIZE-32))
+    if(size > (INT_MAX-32) )
         return NULL;
 
 #if CONFIG_MEMALIGN_HACK
-    ptr = malloc(size+ALIGN);
+    ptr = malloc(size+32);
     if(!ptr)
         return ptr;
-    diff= ((-(long)ptr - 1)&(ALIGN-1)) + 1;
+    diff= ((-(long)ptr - 1)&31) + 1;
     ptr = (char*)ptr + diff;
     ((char*)ptr)[-1]= diff;
 #elif HAVE_POSIX_MEMALIGN
-    if (size) //OSX on SDK 10.6 has a broken posix_memalign implementation
-    if (posix_memalign(&ptr,ALIGN,size))
+    if (posix_memalign(&ptr,32,size))
         ptr = NULL;
 #elif HAVE_MEMALIGN
-    ptr = memalign(ALIGN,size);
+    ptr = memalign(32,size);
     /* Why 64?
        Indeed, we should align it:
          on 4 for 386
@@ -118,8 +111,6 @@ void *av_malloc(size_t size)
 #else
     ptr = malloc(size);
 #endif
-    if(!ptr && !size)
-        ptr= av_malloc(1);
     return ptr;
 }
 
@@ -130,7 +121,7 @@ void *av_realloc(void *ptr, size_t size)
 #endif
 
     /* let's disallow possible ambiguous cases */
-    if (size > (MAX_MALLOC_SIZE-16))
+    if(size > (INT_MAX-16) )
         return NULL;
 
 #if CONFIG_MEMALIGN_HACK
@@ -139,7 +130,7 @@ void *av_realloc(void *ptr, size_t size)
     diff= ((char*)ptr)[-1];
     return (char*)realloc((char*)ptr - diff, size + diff) + diff;
 #else
-    return realloc(ptr, size + !size);
+    return realloc(ptr, size);
 #endif
 }
 
@@ -180,23 +171,3 @@ char *av_strdup(const char *s)
     return ptr;
 }
 
-/* add one element to a dynamic array */
-void av_dynarray_add(void *tab_ptr, int *nb_ptr, void *elem)
-{
-    /* see similar ffmpeg.c:grow_array() */
-    int nb, nb_alloc;
-    intptr_t *tab;
-
-    nb = *nb_ptr;
-    tab = *(intptr_t**)tab_ptr;
-    if ((nb & (nb - 1)) == 0) {
-        if (nb == 0)
-            nb_alloc = 1;
-        else
-            nb_alloc = nb * 2;
-        tab = av_realloc(tab, nb_alloc * sizeof(intptr_t));
-        *(intptr_t**)tab_ptr = tab;
-    }
-    tab[nb++] = (intptr_t)elem;
-    *nb_ptr = nb;
-}

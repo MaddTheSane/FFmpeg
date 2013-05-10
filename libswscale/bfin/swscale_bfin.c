@@ -3,20 +3,20 @@
  *
  * Blackfin software video scaler operations
  *
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
@@ -78,8 +78,6 @@ static int yuyvtoyv12_unscaled(SwsContext *c, uint8_t* src[], int srcStride[], i
 
 void ff_bfin_get_unscaled_swscale(SwsContext *c)
 {
-    SwsFunc swScale = c->swScale;
-
     if (c->dstFormat == PIX_FMT_YUV420P && c->srcFormat == PIX_FMT_UYVY422) {
         av_log (NULL, AV_LOG_VERBOSE, "selecting Blackfin optimized uyvytoyv12_unscaled\n");
         c->swScale = uyvytoyv12_unscaled;

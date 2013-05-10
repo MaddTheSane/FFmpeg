@@ -2,26 +2,26 @@
  * CCITT Fax Group 3 and 4 decompression
  * Copyright (c) 2008 Konstantin Shishkov
  *
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 /**
- * CCITT Fax Group 3 and 4 decompression
  * @file
+ * CCITT Fax Group 3 and 4 decompression
  * @author Konstantin Shishkov
  */
 #include "avcodec.h"
@@ -110,11 +110,11 @@ av_cold void ff_ccitt_unpack_init(void)
     ccitt_vlc[1].table = code_table2;
     ccitt_vlc[1].table_allocated = 648;
     for(i = 0; i < 2; i++){
-        init_vlc_sparse(&ccitt_vlc[i], 9, CCITT_SYMS,
-                        ccitt_codes_lens[i], 1, 1,
-                        ccitt_codes_bits[i], 1, 1,
-                        ccitt_syms, 2, 2,
-                        INIT_VLC_USE_NEW_STATIC);
+        ff_init_vlc_sparse(&ccitt_vlc[i], 9, CCITT_SYMS,
+                           ccitt_codes_lens[i], 1, 1,
+                           ccitt_codes_bits[i], 1, 1,
+                           ccitt_syms, 2, 2,
+                           INIT_VLC_USE_NEW_STATIC);
     }
     INIT_VLC_STATIC(&ccitt_group3_2d_vlc, 9, 11,
                     ccitt_group3_2d_lens, 1, 1,

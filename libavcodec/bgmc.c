@@ -2,20 +2,20 @@
  * Block Gilbert-Moore decoder
  * Copyright (c) 2010 Thilo Borgmann <thilo.borgmann _at_ googlemail.com>
  *
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
@@ -474,7 +474,8 @@ int ff_bgmc_init(AVCodecContext *avctx, uint8_t **cf_lut, int **cf_lut_status)
         av_log(avctx, AV_LOG_ERROR, "Allocating buffer memory failed.\n");
         return AVERROR(ENOMEM);
     } else {
-        // initialize lut_status buffer to a value never used to compare against
+        // initialize lut_status buffer to a value never used to compare
+        // against
         memset(*cf_lut_status, -1, sizeof(*cf_lut_status) * LUT_BUFF);
     }
 
@@ -494,7 +495,7 @@ void ff_bgmc_end(uint8_t **cf_lut, int **cf_lut_status)
 /** Initialize decoding and reads the first value
  */
 void ff_bgmc_decode_init(GetBitContext *gb,
-                      unsigned int *h, unsigned int *l, unsigned int *v)
+                         unsigned int *h, unsigned int *l, unsigned int *v)
 {
     *h = TOP_VALUE;
     *l = 0;
@@ -513,9 +514,9 @@ void ff_bgmc_decode_end(GetBitContext *gb)
 /** Read and decode a block Gilbert-Moore coded symbol
  */
 void ff_bgmc_decode(GetBitContext *gb, unsigned int num, int32_t *dst,
-                 int delta, unsigned int sx,
-                 unsigned int *h, unsigned int *l, unsigned int *v,
-                 uint8_t *cf_lut, int *cf_lut_status)
+                    int delta, unsigned int sx,
+                    unsigned int *h, unsigned int *l, unsigned int *v,
+                    uint8_t *cf_lut, int *cf_lut_status)
 {
     unsigned int i;
     uint8_t *lut = bgmc_lut_getp(cf_lut, cf_lut_status, delta);
@@ -567,4 +568,3 @@ void ff_bgmc_decode(GetBitContext *gb, unsigned int num, int32_t *dst,
     *l = low;
     *v = value;
 }
-

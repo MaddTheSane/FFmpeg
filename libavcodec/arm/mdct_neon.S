@@ -2,28 +2,26 @@
  * ARM NEON optimised MDCT
  * Copyright (c) 2009 Mans Rullgard <mans@mansr.com>
  *
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include "asm.S"
 
         preserve8
-
-        .text
 
 #define ff_fft_calc_neon X(ff_fft_calc_neon)
 
@@ -191,7 +189,9 @@ function ff_mdct_calc_neon, export=1
         vadd.f32        d17, d17, d3            @ in2u+in1d     -I
 1:
         vmul.f32        d7,  d0,  d21           @  I*s
-        ldr             r10, [r3, lr, lsr #1]
+A       ldr             r10, [r3, lr, lsr #1]
+T       lsr             r10, lr,  #1
+T       ldr             r10, [r3, r10]
         vmul.f32        d6,  d1,  d20           @ -R*c
         ldr             r6,  [r3, #4]!
         vmul.f32        d4,  d1,  d21           @ -R*s

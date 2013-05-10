@@ -1,20 +1,20 @@
 /*
  * Copyright (c) 2007 Bobby Bingham
  *
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
@@ -88,7 +88,7 @@ static AVFilterFormats *make_format_list(FormatContext *format, int flag)
 #if CONFIG_FORMAT_FILTER
 static int query_formats_format(AVFilterContext *ctx)
 {
-    avfilter_set_common_pixel_formats(ctx, make_format_list(ctx->priv, 1));
+    avfilter_set_common_formats(ctx, make_format_list(ctx->priv, 1));
     return 0;
 }
 
@@ -118,7 +118,7 @@ AVFilter avfilter_vf_format = {
 #if CONFIG_NOFORMAT_FILTER
 static int query_formats_noformat(AVFilterContext *ctx)
 {
-    avfilter_set_common_pixel_formats(ctx, make_format_list(ctx->priv, 0));
+    avfilter_set_common_formats(ctx, make_format_list(ctx->priv, 0));
     return 0;
 }
 

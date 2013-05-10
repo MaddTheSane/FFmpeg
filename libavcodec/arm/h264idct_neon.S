@@ -1,27 +1,26 @@
 /*
  * Copyright (c) 2008 Mans Rullgard <mans@mansr.com>
  *
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include "asm.S"
 
         preserve8
-        .text
 
 function ff_h264_idct_add_neon, export=1
         vld1.64         {d0-d3},  [r1,:128]
@@ -106,10 +105,12 @@ function ff_h264_idct_add16_neon, export=1
         blt             2f
         ldrsh           lr,  [r1]
         add             r0,  r0,  r4
+        it              ne
         movne           lr,  #0
         cmp             lr,  #0
-        adrne           lr,  ff_h264_idct_dc_add_neon
-        adreq           lr,  ff_h264_idct_add_neon
+        ite             ne
+        adrne           lr,  ff_h264_idct_dc_add_neon + CONFIG_THUMB
+        adreq           lr,  ff_h264_idct_add_neon    + CONFIG_THUMB
         blx             lr
 2:      subs            ip,  ip,  #1
         add             r1,  r1,  #32
@@ -132,8 +133,9 @@ function ff_h264_idct_add16intra_neon, export=1
         add             r0,  r0,  r4
         cmp             r8,  #0
         ldrsh           r8,  [r1]
-        adrne           lr,  ff_h264_idct_add_neon
-        adreq           lr,  ff_h264_idct_dc_add_neon
+        iteet           ne
+        adrne           lr,  ff_h264_idct_add_neon    + CONFIG_THUMB
+        adreq           lr,  ff_h264_idct_dc_add_neon + CONFIG_THUMB
         cmpeq           r8,  #0
         blxne           lr
         subs            ip,  ip,  #1
@@ -159,12 +161,14 @@ function ff_h264_idct_add8_neon, export=1
         add             r1,  r3,  r12, lsl #5
         cmp             r8,  #0
         ldrsh           r8,  [r1]
-        adrne           lr,  ff_h264_idct_add_neon
-        adreq           lr,  ff_h264_idct_dc_add_neon
+        iteet           ne
+        adrne           lr,  ff_h264_idct_add_neon    + CONFIG_THUMB
+        adreq           lr,  ff_h264_idct_dc_add_neon + CONFIG_THUMB
         cmpeq           r8,  #0
         blxne           lr
         add             r12, r12, #1
         cmp             r12, #4
+        itt             eq
         moveq           r12, #16
         moveq           r4,  r9
         cmp             r12, #20
@@ -365,10 +369,12 @@ function ff_h264_idct8_add4_neon, export=1
         blt             2f
         ldrsh           lr,  [r1]
         add             r0,  r0,  r4
+        it              ne
         movne           lr,  #0
         cmp             lr,  #0
-        adrne           lr,  ff_h264_idct8_dc_add_neon
-        adreq           lr,  ff_h264_idct8_add_neon
+        ite             ne
+        adrne           lr,  ff_h264_idct8_dc_add_neon + CONFIG_THUMB
+        adreq           lr,  ff_h264_idct8_add_neon    + CONFIG_THUMB
         blx             lr
 2:      subs            r12, r12, #4
         add             r1,  r1,  #128
@@ -376,8 +382,8 @@ function ff_h264_idct8_add4_neon, export=1
         pop             {r4-r8,pc}
 endfunc
 
-        .section .rodata
-scan8:  .byte           4+ 1*8, 5+ 1*8, 4+ 2*8, 5+ 2*8
+const   scan8
+        .byte           4+ 1*8, 5+ 1*8, 4+ 2*8, 5+ 2*8
         .byte           6+ 1*8, 7+ 1*8, 6+ 2*8, 7+ 2*8
         .byte           4+ 3*8, 5+ 3*8, 4+ 4*8, 5+ 4*8
         .byte           6+ 3*8, 7+ 3*8, 6+ 4*8, 7+ 4*8
@@ -389,3 +395,4 @@ scan8:  .byte           4+ 1*8, 5+ 1*8, 4+ 2*8, 5+ 2*8
         .byte           6+11*8, 7+11*8, 6+12*8, 7+12*8
         .byte           4+13*8, 5+13*8, 4+14*8, 5+14*8
         .byte           6+13*8, 7+13*8, 6+14*8, 7+14*8
+endconst

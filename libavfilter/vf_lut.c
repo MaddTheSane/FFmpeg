@@ -1,20 +1,20 @@
 /*
  * Copyright (c) 2011 Stefano Sabatini
  *
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
@@ -25,9 +25,11 @@
  */
 
 #include "libavutil/eval.h"
+#include "libavutil/mathematics.h"
 #include "libavutil/opt.h"
 #include "libavutil/pixdesc.h"
 #include "avfilter.h"
+#include "internal.h"
 
 static const char *var_names[] = {
     "E",
@@ -112,7 +114,7 @@ static int init(AVFilterContext *ctx, const char *args, void *opaque)
     int ret;
 
     lut->class = &lut_class;
-    av_opt_set_defaults2(lut, 0, 0);
+    av_opt_set_defaults(lut);
 
     lut->var_values[VAR_PHI] = M_PHI;
     lut->var_values[VAR_PI]  = M_PI;
@@ -161,17 +163,7 @@ static int query_formats(AVFilterContext *ctx)
     enum PixelFormat *pix_fmts = lut->is_rgb ? rgb_pix_fmts :
                                  lut->is_yuv ? yuv_pix_fmts : all_pix_fmts;
 
-    avfilter_set_common_pixel_formats(ctx, avfilter_make_format_list(pix_fmts));
-    return 0;
-}
-
-static int pix_fmt_is_in(enum PixelFormat pix_fmt, enum PixelFormat *pix_fmts)
-{
-    enum PixelFormat *p;
-    for (p = pix_fmts; *p != PIX_FMT_NONE; p++) {
-        if (pix_fmt == *p)
-            return 1;
-    }
+    avfilter_set_common_formats(ctx, avfilter_make_format_list(pix_fmts));
     return 0;
 }
 
@@ -202,8 +194,8 @@ static double compute_gammaval(void *opaque, double gamma)
 }
 
 static double (* const funcs1[])(void *, double) = {
-    (void *)clip,
-    (void *)compute_gammaval,
+    clip,
+    compute_gammaval,
     NULL
 };
 
@@ -238,6 +230,7 @@ static int config_props(AVFilterLink *inlink)
         min[Y] = min[U] = min[V] = 16;
         max[Y] = 235;
         max[U] = max[V] = 240;
+        min[A] = 0; max[A] = 255;
         break;
     default:
         min[0] = min[1] = min[2] = min[3] = 0;
@@ -245,8 +238,8 @@ static int config_props(AVFilterLink *inlink)
     }
 
     lut->is_yuv = lut->is_rgb = 0;
-    if      (pix_fmt_is_in(inlink->format, yuv_pix_fmts)) lut->is_yuv = 1;
-    else if (pix_fmt_is_in(inlink->format, rgb_pix_fmts)) lut->is_rgb = 1;
+    if      (ff_fmt_is_in(inlink->format, yuv_pix_fmts)) lut->is_yuv = 1;
+    else if (ff_fmt_is_in(inlink->format, rgb_pix_fmts)) lut->is_rgb = 1;
 
     if (lut->is_rgb) {
         switch (inlink->format) {
@@ -306,25 +299,29 @@ static void draw_slice(AVFilterLink *inlink, int y, int h, int slice_dir)
     AVFilterLink *outlink = ctx->outputs[0];
     AVFilterBufferRef *inpic  = inlink ->cur_buf;
     AVFilterBufferRef *outpic = outlink->out_buf;
-    uint8_t *inrow, *outrow;
+    uint8_t *inrow, *outrow, *inrow0, *outrow0;
     int i, j, k, plane;
 
     if (lut->is_rgb) {
         /* packed */
-        inrow  = inpic ->data[0] + y * inpic ->linesize[0];
-        outrow = outpic->data[0] + y * outpic->linesize[0];
+        inrow0  = inpic ->data[0] + y * inpic ->linesize[0];
+        outrow0 = outpic->data[0] + y * outpic->linesize[0];
 
         for (i = 0; i < h; i ++) {
+            inrow  = inrow0;
+            outrow = outrow0;
             for (j = 0; j < inlink->w; j++) {
                 for (k = 0; k < lut->step; k++)
                     outrow[k] = lut->lut[lut->rgba_map[k]][inrow[k]];
                 outrow += lut->step;
                 inrow  += lut->step;
             }
+            inrow0  += inpic ->linesize[0];
+            outrow0 += outpic->linesize[0];
         }
     } else {
         /* planar */
-        for (plane = 0; inpic->data[plane]; plane++) {
+        for (plane = 0; plane < 4 && inpic->data[plane]; plane++) {
             int vsub = plane == 1 || plane == 2 ? lut->vsub : 0;
             int hsub = plane == 1 || plane == 2 ? lut->hsub : 0;
 
@@ -364,21 +361,27 @@ static void draw_slice(AVFilterLink *inlink, int y, int h, int slice_dir)
                                       { .name = NULL}},                 \
     }
 
+#if CONFIG_LUT_FILTER
 DEFINE_LUT_FILTER(lut,    "Compute and apply a lookup table to the RGB/YUV input video.", init);
+#endif
+#if CONFIG_LUTYUV_FILTER
 DEFINE_LUT_FILTER(lutyuv, "Compute and apply a lookup table to the YUV input video.",     init);
+#endif
+#if CONFIG_LUTRGB_FILTER
 DEFINE_LUT_FILTER(lutrgb, "Compute and apply a lookup table to the RGB input video.",     init);
+#endif
 
 #if CONFIG_NEGATE_FILTER
 
 static int negate_init(AVFilterContext *ctx, const char *args, void *opaque)
 {
     LutContext *lut = ctx->priv;
-    char lut_params[1024];
+    char lut_params[64];
 
     if (args)
         sscanf(args, "%d", &lut->negate_alpha);
 
-    av_log(ctx, AV_LOG_INFO, "negate_alpha:%d\n", lut->negate_alpha);
+    av_log(ctx, AV_LOG_DEBUG, "negate_alpha:%d\n", lut->negate_alpha);
 
     snprintf(lut_params, sizeof(lut_params), "c0=negval:c1=negval:c2=negval:a=%s",
              lut->negate_alpha ? "negval" : "val");

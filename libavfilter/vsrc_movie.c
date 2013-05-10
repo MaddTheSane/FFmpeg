@@ -2,20 +2,20 @@
  * Copyright (c) 2010 Stefano Sabatini
  * Copyright (c) 2008 Victor Paesa
  *
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
@@ -35,7 +35,6 @@
 #include "libavutil/opt.h"
 #include "libavutil/imgutils.h"
 #include "libavformat/avformat.h"
-#include "avcodec.h"
 #include "avfilter.h"
 
 typedef struct {
@@ -58,12 +57,12 @@ typedef struct {
 #define OFFSET(x) offsetof(MovieContext, x)
 
 static const AVOption movie_options[]= {
-{"format_name",  "set format name",         OFFSET(format_name),  FF_OPT_TYPE_STRING, {.str =  0},  CHAR_MIN, CHAR_MAX },
-{"f",            "set format name",         OFFSET(format_name),  FF_OPT_TYPE_STRING, {.str =  0},  CHAR_MIN, CHAR_MAX },
-{"stream_index", "set stream index",        OFFSET(stream_index), FF_OPT_TYPE_INT,    {.dbl = -1},  -1,       INT_MAX  },
-{"si",           "set stream index",        OFFSET(stream_index), FF_OPT_TYPE_INT,    {.dbl = -1},  -1,       INT_MAX  },
-{"seek_point",   "set seekpoint (seconds)", OFFSET(seek_point_d), FF_OPT_TYPE_DOUBLE, {.dbl =  0},  0,        (INT64_MAX-1) / 1000000 },
-{"sp",           "set seekpoint (seconds)", OFFSET(seek_point_d), FF_OPT_TYPE_DOUBLE, {.dbl =  0},  0,        (INT64_MAX-1) / 1000000 },
+{"format_name",  "set format name",         OFFSET(format_name),  AV_OPT_TYPE_STRING, {.str =  0},  CHAR_MIN, CHAR_MAX },
+{"f",            "set format name",         OFFSET(format_name),  AV_OPT_TYPE_STRING, {.str =  0},  CHAR_MIN, CHAR_MAX },
+{"stream_index", "set stream index",        OFFSET(stream_index), AV_OPT_TYPE_INT,    {.dbl = -1},  -1,       INT_MAX  },
+{"si",           "set stream index",        OFFSET(stream_index), AV_OPT_TYPE_INT,    {.dbl = -1},  -1,       INT_MAX  },
+{"seek_point",   "set seekpoint (seconds)", OFFSET(seek_point_d), AV_OPT_TYPE_DOUBLE, {.dbl =  0},  0,        (INT64_MAX-1) / 1000000 },
+{"sp",           "set seekpoint (seconds)", OFFSET(seek_point_d), AV_OPT_TYPE_DOUBLE, {.dbl =  0},  0,        (INT64_MAX-1) / 1000000 },
 {NULL},
 };
 
@@ -97,7 +96,7 @@ static int movie_init(AVFilterContext *ctx)
                "Failed to avformat_open_input '%s'\n", movie->file_name);
         return ret;
     }
-    if ((ret = av_find_stream_info(movie->format_ctx)) < 0)
+    if ((ret = avformat_find_stream_info(movie->format_ctx, NULL)) < 0)
         av_log(ctx, AV_LOG_WARNING, "Failed to find stream info\n");
 
     // if seeking requested, we execute it
@@ -140,7 +139,7 @@ static int movie_init(AVFilterContext *ctx)
         return AVERROR(EINVAL);
     }
 
-    if ((ret = avcodec_open(movie->codec_ctx, codec)) < 0) {
+    if ((ret = avcodec_open2(movie->codec_ctx, codec, NULL)) < 0) {
         av_log(ctx, AV_LOG_ERROR, "Failed to open codec\n");
         return ret;
     }
@@ -165,7 +164,7 @@ static av_cold int init(AVFilterContext *ctx, const char *args, void *opaque)
     MovieContext *movie = ctx->priv;
     int ret;
     movie->class = &movie_class;
-    av_opt_set_defaults2(movie, 0, 0);
+    av_opt_set_defaults(movie);
 
     if (args)
         movie->file_name = av_get_token(&args, ":");
@@ -193,7 +192,7 @@ static av_cold void uninit(AVFilterContext *ctx)
     if (movie->codec_ctx)
         avcodec_close(movie->codec_ctx);
     if (movie->format_ctx)
-        av_close_input_file(movie->format_ctx);
+        avformat_close_input(&movie->format_ctx);
     avfilter_unref_buffer(movie->picref);
     av_freep(&movie->frame);
 }
@@ -203,7 +202,7 @@ static int query_formats(AVFilterContext *ctx)
     MovieContext *movie = ctx->priv;
     enum PixelFormat pix_fmts[] = { movie->codec_ctx->pix_fmt, PIX_FMT_NONE };
 
-    avfilter_set_common_pixel_formats(ctx, avfilter_make_format_list(pix_fmts));
+    avfilter_set_common_formats(ctx, avfilter_make_format_list(pix_fmts));
     return 0;
 }
 
@@ -231,6 +230,7 @@ static int movie_get_frame(AVFilterLink *outlink)
     while ((ret = av_read_frame(movie->format_ctx, &pkt)) >= 0) {
         // Is this a packet from the video stream?
         if (pkt.stream_index == movie->stream_index) {
+            movie->codec_ctx->reordered_opaque = pkt.pos;
             avcodec_decode_video2(movie->codec_ctx, movie->frame, &frame_decoded, &pkt);
 
             if (frame_decoded) {
@@ -247,15 +247,16 @@ static int movie_get_frame(AVFilterLink *outlink)
                 /* use pkt_dts if pkt_pts is not available */
                 movie->picref->pts = movie->frame->pkt_pts == AV_NOPTS_VALUE ?
                     movie->frame->pkt_dts : movie->frame->pkt_pts;
+
+                movie->picref->pos                    = movie->frame->reordered_opaque;
                 if (!movie->frame->sample_aspect_ratio.num)
-                    movie->picref->video->sample_aspect_ratio = st->sample_aspect_ratio;
+                    movie->picref->video->pixel_aspect = st->sample_aspect_ratio;
                 av_dlog(outlink->src,
                         "movie_get_frame(): file:'%s' pts:%"PRId64" time:%lf pos:%"PRId64" aspect:%d/%d\n",
                         movie->file_name, movie->picref->pts,
                         (double)movie->picref->pts * av_q2d(st->time_base),
                         movie->picref->pos,
-                        movie->picref->video->sample_aspect_ratio.num,
-                        movie->picref->video->sample_aspect_ratio.den);
+                        movie->picref->video->pixel_aspect.num, movie->picref->video->pixel_aspect.den);
                 // We got it. Free the packet since we are returning
                 av_free_packet(&pkt);
 

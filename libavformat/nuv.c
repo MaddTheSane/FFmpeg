@@ -2,25 +2,27 @@
  * NuppelVideo demuxer.
  * Copyright (c) 2006 Reimar Doeffinger
  *
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include "libavutil/intreadwrite.h"
+#include "libavutil/intfloat.h"
 #include "avformat.h"
+#include "internal.h"
 #include "riff.h"
 
 typedef struct {
@@ -45,22 +47,22 @@ static int nuv_probe(AVProbeData *p) {
     return 0;
 }
 
-//! little macro to sanitize packet size
+/// little macro to sanitize packet size
 #define PKTSIZE(s) (s &  0xffffff)
 
 /**
- * \brief read until we found all data needed for decoding
- * \param vst video stream of which to change parameters
- * \param ast video stream of which to change parameters
- * \param myth set if this is a MythTVVideo format file
- * \return 1 if all required codec data was found
+ * @brief read until we found all data needed for decoding
+ * @param vst video stream of which to change parameters
+ * @param ast video stream of which to change parameters
+ * @param myth set if this is a MythTVVideo format file
+ * @return 1 if all required codec data was found
  */
 static int get_codec_data(AVIOContext *pb, AVStream *vst,
                           AVStream *ast, int myth) {
     nuv_frametype frametype;
     if (!vst && !myth)
         return 1; // no codec data needed
-    while (!url_feof(pb)) {
+    while (!pb->eof_reached) {
         int size, subtype;
         frametype = avio_r8(pb);
         switch (frametype) {
@@ -138,10 +140,10 @@ static int nuv_header(AVFormatContext *s, AVFormatParameters *ap) {
     avio_rl32(pb); // unused, "desiredheight"
     avio_r8(pb); // 'P' == progressive, 'I' == interlaced
     avio_skip(pb, 3); // padding
-    aspect = av_int2dbl(avio_rl64(pb));
+    aspect = av_int2double(avio_rl64(pb));
     if (aspect > 0.9999 && aspect < 1.0001)
         aspect = 4.0 / 3.0;
-    fps = av_int2dbl(avio_rl64(pb));
+    fps = av_int2double(avio_rl64(pb));
 
     // number of packets per stream type, -1 means unknown, e.g. streaming
     v_packs = avio_rl32(pb);
@@ -152,7 +154,7 @@ static int nuv_header(AVFormatContext *s, AVFormatParameters *ap) {
 
     if (v_packs) {
         ctx->v_id = stream_nr++;
-        vst = av_new_stream(s, ctx->v_id);
+        vst = avformat_new_stream(s, NULL);
         if (!vst)
             return AVERROR(ENOMEM);
         vst->codec->codec_type = AVMEDIA_TYPE_VIDEO;
@@ -162,13 +164,13 @@ static int nuv_header(AVFormatContext *s, AVFormatParameters *ap) {
         vst->codec->bits_per_coded_sample = 10;
         vst->sample_aspect_ratio = av_d2q(aspect * height / width, 10000);
         vst->r_frame_rate = av_d2q(fps, 60000);
-        av_set_pts_info(vst, 32, 1, 1000);
+        avpriv_set_pts_info(vst, 32, 1, 1000);
     } else
         ctx->v_id = -1;
 
     if (a_packs) {
         ctx->a_id = stream_nr++;
-        ast = av_new_stream(s, ctx->a_id);
+        ast = avformat_new_stream(s, NULL);
         if (!ast)
             return AVERROR(ENOMEM);
         ast->codec->codec_type = AVMEDIA_TYPE_AUDIO;
@@ -178,7 +180,7 @@ static int nuv_header(AVFormatContext *s, AVFormatParameters *ap) {
         ast->codec->bit_rate = 2 * 2 * 44100 * 8;
         ast->codec->block_align = 2 * 2;
         ast->codec->bits_per_coded_sample = 16;
-        av_set_pts_info(ast, 32, 1, 1000);
+        avpriv_set_pts_info(ast, 32, 1, 1000);
     } else
         ctx->a_id = -1;
 
@@ -195,7 +197,7 @@ static int nuv_packet(AVFormatContext *s, AVPacket *pkt) {
     uint8_t hdr[HDRSIZE];
     nuv_frametype frametype;
     int ret, size;
-    while (!url_feof(pb)) {
+    while (!pb->eof_reached) {
         int copyhdrsize = ctx->rtjpg_video ? HDRSIZE : 0;
         uint64_t pos = avio_tell(pb);
         ret = avio_read(pb, hdr, HDRSIZE);
@@ -258,13 +260,11 @@ static int nuv_packet(AVFormatContext *s, AVPacket *pkt) {
 }
 
 AVInputFormat ff_nuv_demuxer = {
-    "nuv",
-    NULL_IF_CONFIG_SMALL("NuppelVideo format"),
-    sizeof(NUVContext),
-    nuv_probe,
-    nuv_header,
-    nuv_packet,
-    NULL,
-    NULL,
+    .name           = "nuv",
+    .long_name      = NULL_IF_CONFIG_SMALL("NuppelVideo format"),
+    .priv_data_size = sizeof(NUVContext),
+    .read_probe     = nuv_probe,
+    .read_header    = nuv_header,
+    .read_packet    = nuv_packet,
     .flags = AVFMT_GENERIC_INDEX,
 };

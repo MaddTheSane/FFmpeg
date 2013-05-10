@@ -1,27 +1,27 @@
 /*
- * Micrsoft RLE Video Decoder
+ * Microsoft RLE video decoder
  * Copyright (C) 2003 the ffmpeg project
  *
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 /**
  * @file
- * MS RLE Video Decoder by Mike Melanson (melanson@pcisys.net)
+ * MS RLE video decoder by Mike Melanson (melanson@pcisys.net)
  * For more information about the MS RLE format, visit:
  *   http://www.pcisys.net/~melanson/codecs/
  *
@@ -53,9 +53,6 @@ static av_cold int msrle_decode_init(AVCodecContext *avctx)
     s->avctx = avctx;
 
     switch (avctx->bits_per_coded_sample) {
-    case 1:
-        avctx->pix_fmt = PIX_FMT_MONOWHITE;
-        break;
     case 4:
     case 8:
         avctx->pix_fmt = PIX_FMT_PAL8;
@@ -68,7 +65,6 @@ static av_cold int msrle_decode_init(AVCodecContext *avctx)
         return -1;
     }
 
-    avcodec_get_frame_defaults(&s->frame);
     s->frame.data[0] = NULL;
 
     return 0;
@@ -93,7 +89,7 @@ static int msrle_decode_frame(AVCodecContext *avctx,
         return -1;
     }
 
-    if (avctx->bits_per_coded_sample > 1 && avctx->bits_per_coded_sample <= 8) {
+    if (avctx->bits_per_coded_sample <= 8) {
         const uint8_t *pal = av_packet_get_side_data(avpkt, AV_PKT_DATA_PALETTE, NULL);
 
         if (pal) {
@@ -149,14 +145,13 @@ static av_cold int msrle_decode_end(AVCodecContext *avctx)
 }
 
 AVCodec ff_msrle_decoder = {
-    "msrle",
-    AVMEDIA_TYPE_VIDEO,
-    CODEC_ID_MSRLE,
-    sizeof(MsrleContext),
-    msrle_decode_init,
-    NULL,
-    msrle_decode_end,
-    msrle_decode_frame,
-    CODEC_CAP_DR1,
+    .name           = "msrle",
+    .type           = AVMEDIA_TYPE_VIDEO,
+    .id             = CODEC_ID_MSRLE,
+    .priv_data_size = sizeof(MsrleContext),
+    .init           = msrle_decode_init,
+    .close          = msrle_decode_end,
+    .decode         = msrle_decode_frame,
+    .capabilities   = CODEC_CAP_DR1,
     .long_name= NULL_IF_CONFIG_SMALL("Microsoft RLE"),
 };

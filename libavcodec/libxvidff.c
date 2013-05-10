@@ -2,20 +2,20 @@
  * Interface to xvidcore for mpeg4 encoding
  * Copyright (c) 2004 Adam Thayer <krevnik@comcast.net>
  *
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
@@ -137,7 +137,7 @@ static av_cold int xvid_encode_init(AVCodecContext *avctx)  {
     xvid_enc_create_t xvid_enc_create;
     xvid_enc_plugin_t plugins[7];
 
-    /* Bring in VOP flags from ffmpeg command-line */
+    /* Bring in VOP flags from avconv command-line */
     x->vop_flags = XVID_VOP_HALFPEL; /* Bare minimum quality */
     if( xvid_flags & CODEC_FLAG_4MV )
         x->vop_flags |= XVID_VOP_INTER4V; /* Level 3 */
@@ -191,7 +191,7 @@ static av_cold int xvid_encode_init(AVCodecContext *avctx)  {
            break;
     }
 
-    /* Bring in VOL flags from ffmpeg command-line */
+    /* Bring in VOL flags from avconv command-line */
     x->vol_flags = 0;
     if( xvid_flags & CODEC_FLAG_GMC ) {
         x->vol_flags |= XVID_VOL_GMC;
@@ -270,7 +270,7 @@ static av_cold int xvid_encode_init(AVCodecContext *avctx)  {
         rc2pass2.version = XVID_VERSION;
         rc2pass2.bitrate = avctx->bit_rate;
 
-        fd = ff_tempfile("xvidff.", &(x->twopassfile));
+        fd = ff_tempfile("xvidff.", &x->twopassfile);
         if( fd == -1 ) {
             av_log(avctx, AV_LOG_ERROR,
                 "Xvid: Cannot write 2-pass pipe\n");
@@ -414,7 +414,7 @@ static int xvid_encode_frame(AVCodecContext *avctx,
     char *tmp;
     struct xvid_context *x = avctx->priv_data;
     AVFrame *picture = data;
-    AVFrame *p = &(x->encoded_picture);
+    AVFrame *p = &x->encoded_picture;
 
     xvid_enc_frame_t xvid_enc_frame;
     xvid_enc_stats_t xvid_enc_stats;
@@ -454,8 +454,8 @@ static int xvid_encode_frame(AVCodecContext *avctx,
                                           XVID_TYPE_AUTO;
 
     /* Pixel aspect ratio setting */
-    if (avctx->sample_aspect_ratio.num < 0 || avctx->sample_aspect_ratio.num > 255 ||
-        avctx->sample_aspect_ratio.den < 0 || avctx->sample_aspect_ratio.den > 255) {
+    if (avctx->sample_aspect_ratio.num < 1 || avctx->sample_aspect_ratio.num > 255 ||
+        avctx->sample_aspect_ratio.den < 1 || avctx->sample_aspect_ratio.den > 255) {
         av_log(avctx, AV_LOG_ERROR, "Invalid pixel aspect ratio %i/%i\n",
                avctx->sample_aspect_ratio.num, avctx->sample_aspect_ratio.den);
         return -1;
@@ -529,7 +529,6 @@ static av_cold int xvid_encode_close(AVCodecContext *avctx) {
     if( x->twopassbuffer != NULL ) {
         av_free(x->twopassbuffer);
         av_free(x->old_twopassbuffer);
-        avctx->stats_out = NULL;
     }
     av_free(x->twopassfile);
     av_free(x->intra_matrix);
@@ -576,7 +575,7 @@ int xvid_strip_vol_header(AVCodecContext *avctx,
         }
         /* Less dangerous now, memmove properly copies the two
            chunks of overlapping data */
-        memmove(frame, &(frame[vo_len]), frame_len - vo_len);
+        memmove(frame, &frame[vo_len], frame_len - vo_len);
         return frame_len - vo_len;
     } else
         return frame_len;
@@ -670,7 +669,7 @@ static int xvid_ff_2pass_create(xvid_plg_create_t * param,
     /* This is because we can safely prevent a buffer overflow */
     log[0] = 0;
     snprintf(log, BUFFER_REMAINING(log),
-        "# ffmpeg 2-pass log file, using xvid codec\n");
+        "# avconv 2-pass log file, using xvid codec\n");
     snprintf(BUFFER_CAT(log), BUFFER_REMAINING(log),
         "# Do not modify. libxvidcore version: %d.%d.%d\n\n",
         XVID_VERSION_MAJOR(XVID_VERSION),
@@ -750,7 +749,7 @@ static int xvid_ff_2pass_before(struct xvid_context *ref,
 static int xvid_ff_2pass_after(struct xvid_context *ref,
                                 xvid_plg_data_t *param) {
     char *log = ref->twopassbuffer;
-    char *frame_types = " ipbs";
+    const char *frame_types = " ipbs";
     char frame_type;
 
     /* Quick bounds check */
@@ -810,13 +809,13 @@ int xvid_ff_2pass(void *ref, int cmd, void *p1, void *p2) {
  * Xvid codec definition for libavcodec.
  */
 AVCodec ff_libxvid_encoder = {
-    "libxvid",
-    AVMEDIA_TYPE_VIDEO,
-    CODEC_ID_MPEG4,
-    sizeof(struct xvid_context),
-    xvid_encode_init,
-    xvid_encode_frame,
-    xvid_encode_close,
+    .name           = "libxvid",
+    .type           = AVMEDIA_TYPE_VIDEO,
+    .id             = CODEC_ID_MPEG4,
+    .priv_data_size = sizeof(struct xvid_context),
+    .init           = xvid_encode_init,
+    .encode         = xvid_encode_frame,
+    .close          = xvid_encode_close,
     .pix_fmts= (const enum PixelFormat[]){PIX_FMT_YUV420P, PIX_FMT_NONE},
     .long_name= NULL_IF_CONFIG_SMALL("libxvidcore MPEG-4 part 2"),
 };

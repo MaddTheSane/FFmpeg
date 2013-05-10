@@ -2,20 +2,20 @@
  * gsm 06.10 decoder
  * Copyright (c) 2010 Reimar Döffinger <Reimar.Doeffinger@gmx.de>
  *
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
@@ -32,6 +32,8 @@
 
 static av_cold int gsm_init(AVCodecContext *avctx)
 {
+    GSMContext *s = avctx->priv_data;
+
     avctx->channels = 1;
     if (!avctx->sample_rate)
         avctx->sample_rate = 8000;
@@ -47,24 +49,34 @@ static av_cold int gsm_init(AVCodecContext *avctx)
         avctx->block_align = GSM_MS_BLOCK_SIZE;
     }
 
+    avcodec_get_frame_defaults(&s->frame);
+    avctx->coded_frame = &s->frame;
+
     return 0;
 }
 
 static int gsm_decode_frame(AVCodecContext *avctx, void *data,
-                            int *data_size, AVPacket *avpkt)
+                            int *got_frame_ptr, AVPacket *avpkt)
 {
+    GSMContext *s = avctx->priv_data;
     int res;
     GetBitContext gb;
     const uint8_t *buf = avpkt->data;
     int buf_size = avpkt->size;
-    int16_t *samples = data;
-    int frame_bytes = 2 * avctx->frame_size;
+    int16_t *samples;
 
-    if (*data_size < frame_bytes)
-        return -1;
-    *data_size = 0;
-    if(buf_size < avctx->block_align)
+    if (buf_size < avctx->block_align) {
+        av_log(avctx, AV_LOG_ERROR, "Packet is too small\n");
         return AVERROR_INVALIDDATA;
+    }
+
+    /* get output buffer */
+    s->frame.nb_samples = avctx->frame_size;
+    if ((res = avctx->get_buffer(avctx, &s->frame)) < 0) {
+        av_log(avctx, AV_LOG_ERROR, "get_buffer() failed\n");
+        return res;
+    }
+    samples = (int16_t *)s->frame.data[0];
 
     switch (avctx->codec_id) {
     case CODEC_ID_GSM:
@@ -80,30 +92,39 @@ static int gsm_decode_frame(AVCodecContext *avctx, void *data,
         if (res < 0)
             return res;
     }
-    *data_size = frame_bytes;
+
+    *got_frame_ptr   = 1;
+    *(AVFrame *)data = s->frame;
+
     return avctx->block_align;
 }
 
+static void gsm_flush(AVCodecContext *avctx)
+{
+    GSMContext *s = avctx->priv_data;
+    memset(s, 0, sizeof(*s));
+}
+
 AVCodec ff_gsm_decoder = {
-    "gsm",
-    AVMEDIA_TYPE_AUDIO,
-    CODEC_ID_GSM,
-    sizeof(GSMContext),
-    gsm_init,
-    NULL,
-    NULL,
-    gsm_decode_frame,
+    .name           = "gsm",
+    .type           = AVMEDIA_TYPE_AUDIO,
+    .id             = CODEC_ID_GSM,
+    .priv_data_size = sizeof(GSMContext),
+    .init           = gsm_init,
+    .decode         = gsm_decode_frame,
+    .flush          = gsm_flush,
+    .capabilities   = CODEC_CAP_DR1,
     .long_name = NULL_IF_CONFIG_SMALL("GSM"),
 };
 
 AVCodec ff_gsm_ms_decoder = {
-    "gsm_ms",
-    AVMEDIA_TYPE_AUDIO,
-    CODEC_ID_GSM_MS,
-    sizeof(GSMContext),
-    gsm_init,
-    NULL,
-    NULL,
-    gsm_decode_frame,
+    .name           = "gsm_ms",
+    .type           = AVMEDIA_TYPE_AUDIO,
+    .id             = CODEC_ID_GSM_MS,
+    .priv_data_size = sizeof(GSMContext),
+    .init           = gsm_init,
+    .decode         = gsm_decode_frame,
+    .flush          = gsm_flush,
+    .capabilities   = CODEC_CAP_DR1,
     .long_name = NULL_IF_CONFIG_SMALL("GSM Microsoft variant"),
 };

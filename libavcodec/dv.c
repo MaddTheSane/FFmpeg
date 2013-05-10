@@ -16,20 +16,20 @@
  * Many thanks to Dan Dennedy <dan@dennedy.org> for providing wealth
  * of DV technical info.
  *
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
@@ -37,7 +37,7 @@
  * @file
  * DV codec.
  */
-#define ALT_BITSTREAM_READER
+
 #include "libavutil/pixdesc.h"
 #include "avcodec.h"
 #include "dsputil.h"
@@ -312,7 +312,7 @@ static av_cold int dvvideo_init(AVCodecContext *avctx)
             dv_rl_vlc[i].level = level;
             dv_rl_vlc[i].run   = run;
         }
-        free_vlc(&dv_vlc);
+        ff_free_vlc(&dv_vlc);
 
         dv_vlc_map_tableinit();
     }
@@ -349,7 +349,7 @@ static av_cold int dvvideo_init(AVCodecContext *avctx)
 
 static av_cold int dvvideo_init_encoder(AVCodecContext *avctx)
 {
-    if (!ff_dv_codec_profile(avctx)) {
+    if (!avpriv_dv_codec_profile(avctx)) {
         av_log(avctx, AV_LOG_ERROR, "Found no DV profile for %ix%i %s video\n",
                avctx->width, avctx->height, av_get_pix_fmt_name(avctx->pix_fmt));
         return -1;
@@ -364,13 +364,12 @@ typedef struct BlockInfo {
     uint8_t pos; /* position in block */
     void (*idct_put)(uint8_t *dest, int line_size, DCTELEM *block);
     uint8_t partial_bit_count;
-    uint16_t partial_bit_buffer;
+    uint32_t partial_bit_buffer;
     int shift_offset;
 } BlockInfo;
 
 /* bit budget for AC only in 5 MBs */
 static const int vs_total_ac_bits = (100 * 4 + 68*2) * 5;
-/* see dv_88_areas and dv_248_areas for details */
 static const int mb_area_start[5] = { 1, 6, 21, 43, 64 };
 
 static inline int put_bits_left(PutBitContext* s)
@@ -378,7 +377,7 @@ static inline int put_bits_left(PutBitContext* s)
     return (s->buf_end - s->buf) * 8 - put_bits_count(s);
 }
 
-/* decode ac coefficients */
+/* decode AC coefficients */
 static void dv_decode_ac(GetBitContext *gb, BlockInfo *mb, DCTELEM *block)
 {
     int last_index = gb->size_in_bits;
@@ -391,10 +390,9 @@ static void dv_decode_ac(GetBitContext *gb, BlockInfo *mb, DCTELEM *block)
     OPEN_READER(re, gb);
     UPDATE_CACHE(re, gb);
 
-    /* if we must parse a partial vlc, we do it here */
+    /* if we must parse a partial VLC, we do it here */
     if (partial_bit_count > 0) {
-        re_cache = ((unsigned)re_cache >> partial_bit_count) |
-                   (mb->partial_bit_buffer << (sizeof(re_cache) * 8 - partial_bit_count));
+        re_cache = re_cache >> partial_bit_count | mb->partial_bit_buffer;
         re_index -= partial_bit_count;
         mb->partial_bit_count = 0;
     }
@@ -417,7 +415,7 @@ static void dv_decode_ac(GetBitContext *gb, BlockInfo *mb, DCTELEM *block)
         if (re_index + vlc_len > last_index) {
             /* should be < 16 bits otherwise a codeword could have been parsed */
             mb->partial_bit_count = last_index - re_index;
-            mb->partial_bit_buffer = NEG_USR32(re_cache, mb->partial_bit_count);
+            mb->partial_bit_buffer = re_cache & ~(-1u >> mb->partial_bit_count);
             re_index = last_index;
             break;
         }
@@ -476,8 +474,8 @@ static int dv_decode_video_segment(AVCodecContext *avctx, void *arg)
     GetBitContext gb;
     BlockInfo mb_data[5 * DV_MAX_BPM], *mb, *mb1;
     LOCAL_ALIGNED_16(DCTELEM, sblock, [5*DV_MAX_BPM], [64]);
-    LOCAL_ALIGNED_16(uint8_t, mb_bit_buffer, [80 + 4]); /* allow some slack */
-    LOCAL_ALIGNED_16(uint8_t, vs_bit_buffer, [5 * 80 + 4]); /* allow some slack */
+    LOCAL_ALIGNED_16(uint8_t, mb_bit_buffer, [  80 + FF_INPUT_BUFFER_PADDING_SIZE]); /* allow some slack */
+    LOCAL_ALIGNED_16(uint8_t, vs_bit_buffer, [5*80 + FF_INPUT_BUFFER_PADDING_SIZE]); /* allow some slack */
     const int log2_blocksize = 3-s->avctx->lowres;
     int is_field_mode[5];
 
@@ -486,7 +484,7 @@ static int dv_decode_video_segment(AVCodecContext *avctx, void *arg)
 
     memset(sblock, 0, 5*DV_MAX_BPM*sizeof(*sblock));
 
-    /* pass 1 : read DC and AC coefficients in blocks */
+    /* pass 1: read DC and AC coefficients in blocks */
     buf_ptr = &s->buf[work_chunk->buf_offset*80];
     block1  = &sblock[0][0];
     mb1     = mb_data;
@@ -503,7 +501,7 @@ static int dv_decode_video_segment(AVCodecContext *avctx, void *arg)
             last_index = s->sys->block_sizes[j];
             init_get_bits(&gb, buf_ptr, last_index);
 
-            /* get the dc */
+            /* get the DC */
             dc       = get_sbits(&gb, 9);
             dct_mode = get_bits1(&gb);
             class1   = get_bits(&gb, 2);
@@ -530,7 +528,7 @@ static int dv_decode_video_segment(AVCodecContext *avctx, void *arg)
             av_dlog(avctx, "MB block: %d, %d ", mb_index, j);
             dv_decode_ac(&gb, mb, block);
 
-            /* write the remaining bits  in a new buffer only if the
+            /* write the remaining bits in a new buffer only if the
                block is finished */
             if (mb->pos >= 64)
                 bit_copy(&pb, &gb);
@@ -539,11 +537,12 @@ static int dv_decode_video_segment(AVCodecContext *avctx, void *arg)
             mb++;
         }
 
-        /* pass 2 : we can do it just after */
+        /* pass 2: we can do it just after */
         av_dlog(avctx, "***pass 2 size=%d MB#=%d\n", put_bits_count(&pb), mb_index);
         block = block1;
         mb    = mb1;
         init_get_bits(&gb, mb_bit_buffer, put_bits_count(&pb));
+        put_bits32(&pb, 0); // padding must be zeroed
         flush_put_bits(&pb);
         for (j = 0; j < s->sys->bpm; j++, block += 64, mb++) {
             if (mb->pos < 64 && get_bits_left(&gb) > 0) {
@@ -559,11 +558,12 @@ static int dv_decode_video_segment(AVCodecContext *avctx, void *arg)
             bit_copy(&vs_pb, &gb);
     }
 
-    /* we need a pass other the whole video segment */
+    /* we need a pass over the whole video segment */
     av_dlog(avctx, "***pass 3 size=%d\n", put_bits_count(&vs_pb));
     block = &sblock[0][0];
     mb    = mb_data;
     init_get_bits(&gb, vs_bit_buffer, put_bits_count(&vs_pb));
+    put_bits32(&vs_pb, 0); // padding must be zeroed
     flush_put_bits(&vs_pb);
     for (mb_index = 0; mb_index < 5; mb_index++) {
         for (j = 0; j < s->sys->bpm; j++) {
@@ -640,7 +640,7 @@ static int dv_decode_video_segment(AVCodecContext *avctx, void *arg)
 }
 
 #if CONFIG_SMALL
-/* Converts run and level (where level != 0) pair into vlc, returning bit size */
+/* Converts run and level (where level != 0) pair into VLC, returning bit size */
 static av_always_inline int dv_rl2vlc(int run, int level, int sign, uint32_t* vlc)
 {
     int size;
@@ -757,7 +757,7 @@ static av_always_inline int dv_guess_dct_mode(DVVideoContext *s, uint8_t *data, 
         if (ps > 0) {
             int is = s->ildct_cmp(NULL, data           , NULL, linesize<<1, 4) +
                      s->ildct_cmp(NULL, data + linesize, NULL, linesize<<1, 4);
-            return (ps > is);
+            return ps > is;
         }
     }
 
@@ -774,7 +774,7 @@ static av_always_inline int dv_init_enc_block(EncBlockInfo* bi, uint8_t *data, i
        method suggested in SMPTE 314M Table 22, and an improved
        method. The SMPTE method is very conservative; it assigns class
        3 (i.e. severe quantization) to any block where the largest AC
-       component is greater than 36. FFmpeg's DV encoder tracks AC bit
+       component is greater than 36. Libav's DV encoder tracks AC bit
        consumption precisely, so there is no need to bias most blocks
        towards strongly lossy compression. Instead, we assign class 2
        to most blocks, and use class 3 only when strictly necessary
@@ -782,7 +782,7 @@ static av_always_inline int dv_init_enc_block(EncBlockInfo* bi, uint8_t *data, i
 
 #if 0 /* SMPTE spec method */
     static const int classes[] = {12, 24, 36, 0xffff};
-#else /* improved FFmpeg method */
+#else /* improved Libav method */
     static const int classes[] = {-1, -1, 255, 0xffff};
 #endif
     int max  = classes[0];
@@ -817,7 +817,7 @@ static av_always_inline int dv_init_enc_block(EncBlockInfo* bi, uint8_t *data, i
 
           if (level + 15 > 30U) {
               bi->sign[i] = (level >> 31) & 1;
-              /* weigh it and and shift down into range, adding for rounding */
+              /* weight it and and shift down into range, adding for rounding */
               /* the extra division by a factor of 2^4 reverses the 8x expansion of the DCT
                  AND the 2x doubling of the weights */
               level = (FFABS(level) * weight[i] + (1 << (dv_weight_bits+3))) >> (dv_weight_bits+4);
@@ -1071,7 +1071,7 @@ static int dvvideo_decode_frame(AVCodecContext *avctx,
     const uint8_t* vsc_pack;
     int apt, is16_9;
 
-    s->sys = ff_dv_frame_profile(s->sys, buf, buf_size);
+    s->sys = avpriv_dv_frame_profile(s->sys, buf, buf_size);
     if (!s->sys || buf_size < s->sys->frame_size || dv_init_dynamic_tables(s->sys)) {
         av_log(avctx, AV_LOG_ERROR, "could not find dv frame profile\n");
         return -1; /* NOTE: we only accept several full frames */
@@ -1080,7 +1080,6 @@ static int dvvideo_decode_frame(AVCodecContext *avctx,
     if (s->picture.data[0])
         avctx->release_buffer(avctx, &s->picture);
 
-    avcodec_get_frame_defaults(&s->picture);
     s->picture.reference = 0;
     s->picture.key_frame = 1;
     s->picture.pict_type = AV_PICTURE_TYPE_I;
@@ -1245,7 +1244,7 @@ static int dvvideo_encode_frame(AVCodecContext *c, uint8_t *buf, int buf_size,
 {
     DVVideoContext *s = c->priv_data;
 
-    s->sys = ff_dv_codec_profile(c);
+    s->sys = avpriv_dv_codec_profile(c);
     if (!s->sys || buf_size < s->sys->frame_size || dv_init_dynamic_tables(s->sys))
         return -1;
 
@@ -1279,12 +1278,12 @@ static int dvvideo_close(AVCodecContext *c)
 
 #if CONFIG_DVVIDEO_ENCODER
 AVCodec ff_dvvideo_encoder = {
-    "dvvideo",
-    AVMEDIA_TYPE_VIDEO,
-    CODEC_ID_DVVIDEO,
-    sizeof(DVVideoContext),
-    dvvideo_init_encoder,
-    dvvideo_encode_frame,
+    .name           = "dvvideo",
+    .type           = AVMEDIA_TYPE_VIDEO,
+    .id             = CODEC_ID_DVVIDEO,
+    .priv_data_size = sizeof(DVVideoContext),
+    .init           = dvvideo_init_encoder,
+    .encode         = dvvideo_encode_frame,
     .capabilities = CODEC_CAP_SLICE_THREADS,
     .pix_fmts  = (const enum PixelFormat[]) {PIX_FMT_YUV411P, PIX_FMT_YUV422P, PIX_FMT_YUV420P, PIX_FMT_NONE},
     .long_name = NULL_IF_CONFIG_SMALL("DV (Digital Video)"),
@@ -1293,16 +1292,14 @@ AVCodec ff_dvvideo_encoder = {
 
 #if CONFIG_DVVIDEO_DECODER
 AVCodec ff_dvvideo_decoder = {
-    "dvvideo",
-    AVMEDIA_TYPE_VIDEO,
-    CODEC_ID_DVVIDEO,
-    sizeof(DVVideoContext),
-    dvvideo_init,
-    NULL,
-    dvvideo_close,
-    dvvideo_decode_frame,
-    CODEC_CAP_DR1 | CODEC_CAP_SLICE_THREADS,
-    NULL,
+    .name           = "dvvideo",
+    .type           = AVMEDIA_TYPE_VIDEO,
+    .id             = CODEC_ID_DVVIDEO,
+    .priv_data_size = sizeof(DVVideoContext),
+    .init           = dvvideo_init,
+    .close          = dvvideo_close,
+    .decode         = dvvideo_decode_frame,
+    .capabilities   = CODEC_CAP_DR1 | CODEC_CAP_SLICE_THREADS,
     .max_lowres = 3,
     .long_name = NULL_IF_CONFIG_SMALL("DV (Digital Video)"),
 };

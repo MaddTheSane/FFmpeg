@@ -3,20 +3,20 @@
  * Copyright (c) 2000 Fabrice Bellard
  * Copyright (c) 2003 Tinic Uro
  *
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
@@ -27,7 +27,7 @@ static int get_swf_tag(AVIOContext *pb, int *len_ptr)
 {
     int tag, len;
 
-    if (url_feof(pb))
+    if (pb->eof_reached)
         return -1;
 
     tag = avio_rl16(pb);
@@ -84,7 +84,7 @@ static int swf_read_packet(AVFormatContext *s, AVPacket *pkt)
     SWFContext *swf = s->priv_data;
     AVIOContext *pb = s->pb;
     AVStream *vst = NULL, *ast = NULL, *st = 0;
-    int tag, len, i, frame, v;
+    int tag, len, i, frame, v, res;
 
     for(;;) {
         uint64_t pos = avio_tell(pb);
@@ -106,12 +106,13 @@ static int swf_read_packet(AVFormatContext *s, AVPacket *pkt)
             avio_rl16(pb);
             avio_r8(pb);
             /* Check for FLV1 */
-            vst = av_new_stream(s, ch_id);
+            vst = avformat_new_stream(s, NULL);
             if (!vst)
                 return -1;
+            vst->id = ch_id;
             vst->codec->codec_type = AVMEDIA_TYPE_VIDEO;
             vst->codec->codec_id = ff_codec_get_id(swf_codec_tags, avio_r8(pb));
-            av_set_pts_info(vst, 16, 256, swf->frame_rate);
+            avpriv_set_pts_info(vst, 16, 256, swf->frame_rate);
             vst->codec->time_base = (AVRational){ 256, swf->frame_rate };
             len -= 8;
         } else if (tag == TAG_STREAMHEAD || tag == TAG_STREAMHEAD2) {
@@ -127,18 +128,20 @@ static int swf_read_packet(AVFormatContext *s, AVPacket *pkt)
             avio_r8(pb);
             v = avio_r8(pb);
             swf->samples_per_frame = avio_rl16(pb);
-            ast = av_new_stream(s, -1); /* -1 to avoid clash with video stream ch_id */
+            ast = avformat_new_stream(s, NULL);
             if (!ast)
                 return -1;
+            ast->id = -1; /* -1 to avoid clash with video stream ch_id */
             ast->codec->channels = 1 + (v&1);
             ast->codec->codec_type = AVMEDIA_TYPE_AUDIO;
             ast->codec->codec_id = ff_codec_get_id(swf_audio_codec_tags, (v>>4) & 15);
             ast->need_parsing = AVSTREAM_PARSE_FULL;
             sample_rate_code= (v>>2) & 3;
             if (!sample_rate_code)
-                return AVERROR(EIO);
-            ast->codec->sample_rate = 11025 << (sample_rate_code-1);
-            av_set_pts_info(ast, 64, 1, ast->codec->sample_rate);
+                ast->codec->sample_rate = 5512;
+            else
+                ast->codec->sample_rate = 11025 << (sample_rate_code-1);
+            avpriv_set_pts_info(ast, 64, 1, ast->codec->sample_rate);
             len -= 4;
         } else if (tag == TAG_VIDEOFRAME) {
             int ch_id = avio_rl16(pb);
@@ -147,7 +150,8 @@ static int swf_read_packet(AVFormatContext *s, AVPacket *pkt)
                 st = s->streams[i];
                 if (st->codec->codec_type == AVMEDIA_TYPE_VIDEO && st->id == ch_id) {
                     frame = avio_rl16(pb);
-                    av_get_packet(pb, pkt, len-2);
+                    if ((res = av_get_packet(pb, pkt, len-2)) < 0)
+                        return res;
                     pkt->pos = pos;
                     pkt->pts = frame;
                     pkt->stream_index = st->index;
@@ -160,9 +164,11 @@ static int swf_read_packet(AVFormatContext *s, AVPacket *pkt)
                 if (st->codec->codec_type == AVMEDIA_TYPE_AUDIO && st->id == -1) {
             if (st->codec->codec_id == CODEC_ID_MP3) {
                 avio_skip(pb, 4);
-                av_get_packet(pb, pkt, len-4);
+                if ((res = av_get_packet(pb, pkt, len-4)) < 0)
+                    return res;
             } else { // ADPCM, PCM
-                av_get_packet(pb, pkt, len);
+                if ((res = av_get_packet(pb, pkt, len)) < 0)
+                    return res;
             }
             pkt->pos = pos;
             pkt->stream_index = st->index;
@@ -176,17 +182,19 @@ static int swf_read_packet(AVFormatContext *s, AVPacket *pkt)
                     break;
             }
             if (i == s->nb_streams) {
-                vst = av_new_stream(s, -2); /* -2 to avoid clash with video stream and audio stream */
+                vst = avformat_new_stream(s, NULL);
                 if (!vst)
                     return -1;
+                vst->id = -2; /* -2 to avoid clash with video stream and audio stream */
                 vst->codec->codec_type = AVMEDIA_TYPE_VIDEO;
                 vst->codec->codec_id = CODEC_ID_MJPEG;
-                av_set_pts_info(vst, 64, 256, swf->frame_rate);
+                avpriv_set_pts_info(vst, 64, 256, swf->frame_rate);
                 vst->codec->time_base = (AVRational){ 256, swf->frame_rate };
                 st = vst;
             }
             avio_rl16(pb); /* BITMAP_ID */
-            av_new_packet(pkt, len-2);
+            if ((res = av_new_packet(pkt, len-2)) < 0)
+                return res;
             avio_read(pb, pkt->data, 4);
             if (AV_RB32(pkt->data) == 0xffd8ffd9 ||
                 AV_RB32(pkt->data) == 0xffd9ffd8) {
@@ -204,14 +212,13 @@ static int swf_read_packet(AVFormatContext *s, AVPacket *pkt)
     skip:
         avio_skip(pb, len);
     }
-    return 0;
 }
 
 AVInputFormat ff_swf_demuxer = {
-    "swf",
-    NULL_IF_CONFIG_SMALL("Flash format"),
-    sizeof(SWFContext),
-    swf_probe,
-    swf_read_header,
-    swf_read_packet,
+    .name           = "swf",
+    .long_name      = NULL_IF_CONFIG_SMALL("Flash format"),
+    .priv_data_size = sizeof(SWFContext),
+    .read_probe     = swf_probe,
+    .read_header    = swf_read_header,
+    .read_packet    = swf_read_packet,
 };

@@ -3,27 +3,27 @@
  * Copyright (c) 2004-2006 Michael Niedermayer
  * Copyright (c) 2003 Alex Beregszaszi
  *
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
-#include <strings.h>
 #include "libavutil/avstring.h"
 #include "libavutil/bswap.h"
 #include "libavutil/dict.h"
+#include "libavutil/mathematics.h"
 #include "libavutil/tree.h"
 #include "avio_internal.h"
 #include "nut.h"
@@ -119,7 +119,7 @@ static uint64_t find_any_startcode(AVIOContext *bc, int64_t pos){
     if(pos >= 0)
         avio_seek(bc, pos, SEEK_SET); //note, this may fail if the stream is not seekable, but that should not matter, as in this case we simply start where we currently are
 
-    while(!url_feof(bc)){
+    while(!bc->eof_reached){
         state= (state<<8) | avio_r8(bc);
         if((state>>56) != 'N')
             continue;
@@ -287,7 +287,7 @@ static int decode_main_header(NUTContext *nut){
 
     nut->stream = av_mallocz(sizeof(StreamContext)*stream_count);
     for(i=0; i<stream_count; i++){
-        av_new_stream(s, i);
+        avformat_new_stream(s, NULL);
     }
 
     return 0;
@@ -374,7 +374,7 @@ static int decode_stream_header(NUTContext *nut){
         return -1;
     }
     stc->time_base= &nut->time_base[stc->time_base_id];
-    av_set_pts_info(s->streams[stream_id], 63, stc->time_base->num, stc->time_base->den);
+    avpriv_set_pts_info(s->streams[stream_id], 63, stc->time_base->num, stc->time_base->den);
     return 0;
 }
 
@@ -415,7 +415,7 @@ static int decode_info_header(NUTContext *nut){
 
     if(chapter_id && !stream_id_plus1){
         int64_t start= chapter_start / nut->time_base_count;
-        chapter= ff_new_chapter(s, chapter_id,
+        chapter= avpriv_new_chapter(s, chapter_id,
                                 nut->time_base[chapter_start % nut->time_base_count],
                                 start, start + chapter_len, NULL);
         metadata = &chapter->metadata;
@@ -458,8 +458,8 @@ static int decode_info_header(NUTContext *nut){
                 set_disposition_bits(s, str_value, stream_id_plus1 - 1);
                 continue;
             }
-            if(metadata && strcasecmp(name,"Uses")
-               && strcasecmp(name,"Depends") && strcasecmp(name,"Replaces"))
+            if(metadata && av_strcasecmp(name,"Uses")
+               && av_strcasecmp(name,"Depends") && av_strcasecmp(name,"Replaces"))
                 av_dict_set(metadata, name, str_value, 0);
         }
     }
@@ -786,7 +786,7 @@ static int nut_read_packet(AVFormatContext *s, AVPacket *pkt)
             pos-=8;
         }else{
             frame_code = avio_r8(bc);
-            if(url_feof(bc))
+            if(bc->eof_reached)
                 return -1;
             if(frame_code == 'N'){
                 tmp= frame_code;
@@ -873,16 +873,16 @@ static int read_seek(AVFormatContext *s, int stream_index, int64_t pts, int flag
                      (void **) next_node);
         av_log(s, AV_LOG_DEBUG, "%"PRIu64"-%"PRIu64" %"PRId64"-%"PRId64"\n", next_node[0]->pos, next_node[1]->pos,
                                                     next_node[0]->ts , next_node[1]->ts);
-        pos= av_gen_search(s, -1, dummy.ts, next_node[0]->pos, next_node[1]->pos, next_node[1]->pos,
-                                            next_node[0]->ts , next_node[1]->ts, AVSEEK_FLAG_BACKWARD, &ts, nut_read_timestamp);
+        pos = ff_gen_search(s, -1, dummy.ts, next_node[0]->pos, next_node[1]->pos, next_node[1]->pos,
+                                             next_node[0]->ts , next_node[1]->ts, AVSEEK_FLAG_BACKWARD, &ts, nut_read_timestamp);
 
         if(!(flags & AVSEEK_FLAG_BACKWARD)){
             dummy.pos= pos+16;
             next_node[1]= &nopts_sp;
             av_tree_find(nut->syncpoints, &dummy, (void *) ff_nut_sp_pos_cmp,
                          (void **) next_node);
-            pos2= av_gen_search(s, -2, dummy.pos, next_node[0]->pos     , next_node[1]->pos, next_node[1]->pos,
-                                                next_node[0]->back_ptr, next_node[1]->back_ptr, flags, &ts, nut_read_timestamp);
+            pos2 = ff_gen_search(s, -2, dummy.pos, next_node[0]->pos     , next_node[1]->pos, next_node[1]->pos,
+                                                   next_node[0]->back_ptr, next_node[1]->back_ptr, flags, &ts, nut_read_timestamp);
             if(pos2>=0)
                 pos= pos2;
             //FIXME dir but I think it does not matter
@@ -923,14 +923,14 @@ static int nut_read_close(AVFormatContext *s)
 
 #if CONFIG_NUT_DEMUXER
 AVInputFormat ff_nut_demuxer = {
-    "nut",
-    NULL_IF_CONFIG_SMALL("NUT format"),
-    sizeof(NUTContext),
-    nut_probe,
-    nut_read_header,
-    nut_read_packet,
-    nut_read_close,
-    read_seek,
+    .name           = "nut",
+    .long_name      = NULL_IF_CONFIG_SMALL("NUT format"),
+    .priv_data_size = sizeof(NUTContext),
+    .read_probe     = nut_probe,
+    .read_header    = nut_read_header,
+    .read_packet    = nut_read_packet,
+    .read_close     = nut_read_close,
+    .read_seek      = read_seek,
     .extensions = "nut",
     .codec_tag = (const AVCodecTag * const []) { ff_codec_bmp_tags, ff_nut_video_tags, ff_codec_wav_tags, ff_nut_subtitle_tags, 0 },
 };

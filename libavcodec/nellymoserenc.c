@@ -4,20 +4,20 @@
  *
  * Copyright (c) 2008 Bartlomiej Wolowiec
  *
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
@@ -28,13 +28,14 @@
  *
  * Generic codec information: libavcodec/nellymoserdec.c
  *
- * Some information also from: http://samples.mplayerhq.hu/A-codecs/Nelly_Moser/ASAO/ASAO.zip
+ * Some information also from: http://samples.libav.org/A-codecs/Nelly_Moser/ASAO/ASAO.zip
  *                             (Copyright Joseph Artsimovich and UAB "DKD")
  *
  * for more information about nellymoser format, visit:
  * http://wiki.multimedia.cx/index.php?title=Nellymoser
  */
 
+#include "libavutil/mathematics.h"
 #include "nellymoser.h"
 #include "avcodec.h"
 #include "dsputil.h"
@@ -146,7 +147,7 @@ static av_cold int encode_init(AVCodecContext *avctx)
 
     avctx->frame_size = NELLY_SAMPLES;
     s->avctx = avctx;
-    ff_mdct_init(&s->mdct_ctx, 8, 0, 1.0);
+    ff_mdct_init(&s->mdct_ctx, 8, 0, 32768.0);
     dsputil_init(&s->dsp, avctx);
 
     /* Generate overlap window */
@@ -352,17 +353,15 @@ static void encode_block(NellyMoserEncodeContext *s, unsigned char *output, int 
 static int encode_frame(AVCodecContext *avctx, uint8_t *frame, int buf_size, void *data)
 {
     NellyMoserEncodeContext *s = avctx->priv_data;
-    const int16_t *samples = data;
+    const float *samples = data;
     int i;
 
     if (s->last_frame)
         return 0;
 
     if (data) {
-        for (i = 0; i < avctx->frame_size; i++) {
-            s->buf[s->bufsel][i] = samples[i];
-        }
-        for (; i < NELLY_SAMPLES; i++) {
+        memcpy(s->buf[s->bufsel], samples, avctx->frame_size * sizeof(*samples));
+        for (i = avctx->frame_size; i < NELLY_SAMPLES; i++) {
             s->buf[s->bufsel][i] = 0;
         }
         s->bufsel = 1 - s->bufsel;
@@ -393,5 +392,5 @@ AVCodec ff_nellymoser_encoder = {
     .close = encode_end,
     .capabilities = CODEC_CAP_SMALL_LAST_FRAME | CODEC_CAP_DELAY,
     .long_name = NULL_IF_CONFIG_SMALL("Nellymoser Asao"),
-    .sample_fmts = (const enum AVSampleFormat[]){AV_SAMPLE_FMT_S16,AV_SAMPLE_FMT_NONE},
+    .sample_fmts = (const enum AVSampleFormat[]){AV_SAMPLE_FMT_FLT,AV_SAMPLE_FMT_NONE},
 };

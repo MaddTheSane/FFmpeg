@@ -2,20 +2,20 @@
  * raw FLAC muxer
  * Copyright (c) 2006-2009 Justin Ruggles
  *
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
@@ -41,7 +41,7 @@ static int flac_write_block_padding(AVIOContext *pb, unsigned int n_padding_byte
 static int flac_write_block_comment(AVIOContext *pb, AVDictionary **m,
                                     int last_block, int bitexact)
 {
-    const char *vendor = bitexact ? "ffmpeg" : LIBAVFORMAT_IDENT;
+    const char *vendor = bitexact ? "Libav" : LIBAVFORMAT_IDENT;
     unsigned int len, count;
     uint8_t *p, *p0;
 
@@ -94,7 +94,7 @@ static int flac_write_trailer(struct AVFormatContext *s)
     enum FLACExtradataFormat format;
     int64_t file_size;
 
-    if (!ff_flac_is_extradata_valid(s->streams[0]->codec, &format, &streaminfo))
+    if (!avpriv_flac_is_extradata_valid(s->streams[0]->codec, &format, &streaminfo))
         return -1;
 
     if (pb->seekable) {
@@ -118,15 +118,14 @@ static int flac_write_packet(struct AVFormatContext *s, AVPacket *pkt)
 }
 
 AVOutputFormat ff_flac_muxer = {
-    "flac",
-    NULL_IF_CONFIG_SMALL("raw FLAC"),
-    "audio/x-flac",
-    "flac",
-    0,
-    CODEC_ID_FLAC,
-    CODEC_ID_NONE,
-    flac_write_header,
-    flac_write_packet,
-    flac_write_trailer,
+    .name              = "flac",
+    .long_name         = NULL_IF_CONFIG_SMALL("raw FLAC"),
+    .mime_type         = "audio/x-flac",
+    .extensions        = "flac",
+    .audio_codec       = CODEC_ID_FLAC,
+    .video_codec       = CODEC_ID_NONE,
+    .write_header      = flac_write_header,
+    .write_packet      = flac_write_packet,
+    .write_trailer     = flac_write_trailer,
     .flags= AVFMT_NOTIMESTAMPS,
 };

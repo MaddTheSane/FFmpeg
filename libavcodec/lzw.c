@@ -3,20 +3,20 @@
  * Copyright (c) 2003 Fabrice Bellard
  * Copyright (c) 2006 Konstantin Shishkov
  *
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
@@ -24,7 +24,7 @@
  * @file
  * @brief LZW decoding routines
  * @author Fabrice Bellard
- * Modified for use in TIFF by Konstantin Shishkov
+ * @author modified for use in TIFF by Konstantin Shishkov
  */
 
 #include "avcodec.h"
@@ -101,9 +101,14 @@ void ff_lzw_decode_tail(LZWState *p)
     struct LZWState *s = (struct LZWState *)p;
 
     if(s->mode == FF_LZW_GIF) {
-        while(s->pbuf < s->ebuf && s->bs>0){
-            s->pbuf += s->bs;
-            s->bs = *s->pbuf++;
+        while (s->bs > 0) {
+            if (s->pbuf + s->bs >= s->ebuf) {
+                s->pbuf = s->ebuf;
+                break;
+            } else {
+                s->pbuf += s->bs;
+                s->bs = *s->pbuf++;
+            }
         }
     }else
         s->pbuf= s->ebuf;

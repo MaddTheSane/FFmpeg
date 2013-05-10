@@ -2,20 +2,20 @@
  * AAC encoder wrapper
  * Copyright (c) 2010 Martin Storsjo
  *
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
@@ -63,7 +63,7 @@ static av_cold int aac_encode_init(AVCodecContext *avctx)
     }
 
     for (index = 0; index < 16; index++)
-        if (avctx->sample_rate == ff_mpeg4audio_sample_rates[index])
+        if (avctx->sample_rate == avpriv_mpeg4audio_sample_rates[index])
             break;
     if (index == 16) {
         av_log(avctx, AV_LOG_ERROR, "Unsupported sample rate %d\n",
@@ -116,14 +116,13 @@ static int aac_encode_frame(AVCodecContext *avctx,
 }
 
 AVCodec ff_libvo_aacenc_encoder = {
-    "libvo_aacenc",
-    AVMEDIA_TYPE_AUDIO,
-    CODEC_ID_AAC,
-    sizeof(AACContext),
-    aac_encode_init,
-    aac_encode_frame,
-    aac_encode_close,
-    NULL,
+    .name           = "libvo_aacenc",
+    .type           = AVMEDIA_TYPE_AUDIO,
+    .id             = CODEC_ID_AAC,
+    .priv_data_size = sizeof(AACContext),
+    .init           = aac_encode_init,
+    .encode         = aac_encode_frame,
+    .close          = aac_encode_close,
     .sample_fmts = (const enum AVSampleFormat[]){AV_SAMPLE_FMT_S16,AV_SAMPLE_FMT_NONE},
     .long_name = NULL_IF_CONFIG_SMALL("Android VisualOn AAC"),
 };

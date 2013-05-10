@@ -3,20 +3,20 @@
  * Copyright (c) 2002 Dieter Shirley
  * Copyright (c) 2003-2004 Romain Dolbeau <romain@dolbeau.org>
  *
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
@@ -48,7 +48,6 @@ static void clear_blocks_dcbz32_ppc(DCTELEM *blocks)
 {
     register int misal = ((unsigned long)blocks & 0x00000010);
     register int i = 0;
-#if 1
     if (misal) {
         ((unsigned long*)blocks)[0] = 0L;
         ((unsigned long*)blocks)[1] = 0L;
@@ -66,9 +65,6 @@ static void clear_blocks_dcbz32_ppc(DCTELEM *blocks)
         ((unsigned long*)blocks)[191] = 0L;
         i += 16;
     }
-#else
-    memset(blocks, 0, sizeof(DCTELEM)*6*64);
-#endif
 }
 
 /* same as above, when dcbzl clear a whole 128B cache line
@@ -78,7 +74,6 @@ static void clear_blocks_dcbz128_ppc(DCTELEM *blocks)
 {
     register int misal = ((unsigned long)blocks & 0x0000007f);
     register int i = 0;
-#if 1
     if (misal) {
         // we could probably also optimize this case,
         // but there's not much point as the machines
@@ -89,9 +84,6 @@ static void clear_blocks_dcbz128_ppc(DCTELEM *blocks)
         for ( ; i < sizeof(DCTELEM)*6*64 ; i += 128) {
             __asm__ volatile("dcbzl %0,%1" : : "b" (blocks), "r" (i) : "memory");
         }
-#else
-    memset(blocks, 0, sizeof(DCTELEM)*6*64);
-#endif
 }
 #else
 static void clear_blocks_dcbz128_ppc(DCTELEM *blocks)
@@ -153,7 +145,7 @@ static void prefetch_ppc(void *mem, int stride, int h)
 
 void dsputil_init_ppc(DSPContext* c, AVCodecContext *avctx)
 {
-    const int high_bit_depth = avctx->codec_id == CODEC_ID_H264 && avctx->bits_per_raw_sample > 8;
+    const int high_bit_depth = avctx->bits_per_raw_sample > 8;
 
     // Common optimizations whether AltiVec is available or not
     c->prefetch = prefetch_ppc;
@@ -180,13 +172,14 @@ void dsputil_init_ppc(DSPContext* c, AVCodecContext *avctx)
         c->gmc1 = gmc1_altivec;
 
 #if CONFIG_ENCODERS
-        if (avctx->dct_algo == FF_DCT_AUTO ||
-            avctx->dct_algo == FF_DCT_ALTIVEC) {
+        if (avctx->bits_per_raw_sample <= 8 &&
+            (avctx->dct_algo == FF_DCT_AUTO ||
+             avctx->dct_algo == FF_DCT_ALTIVEC)) {
             c->fdct = fdct_altivec;
         }
 #endif //CONFIG_ENCODERS
 
-        if (avctx->lowres==0) {
+        if (avctx->lowres == 0 && avctx->bits_per_raw_sample <= 8) {
             if ((avctx->idct_algo == FF_IDCT_AUTO) ||
                 (avctx->idct_algo == FF_IDCT_ALTIVEC)) {
                 c->idct_put = idct_put_altivec;

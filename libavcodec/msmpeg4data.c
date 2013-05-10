@@ -1,24 +1,24 @@
 /*
- * MSMPEG4 backend for ffmpeg encoder and decoder
+ * MSMPEG4 backend for encoder and decoder
  * copyright (c) 2001 Fabrice Bellard
  * copyright (c) 2002-2004 Michael Niedermayer <michaelni@gmx.at>
  *
  * msmpeg4v1 & v2 stuff by Michael Niedermayer <michaelni@gmx.at>
  *
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
@@ -592,9 +592,9 @@ static const int8_t table4_run[168] = {
  29, 30, 31, 32, 33, 34, 35, 36,
 };
 
-extern const uint16_t inter_vlc[103][2];
-extern const int8_t inter_level[102];
-extern const int8_t inter_run[102];
+extern const uint16_t ff_inter_vlc[103][2];
+extern const int8_t ff_inter_level[102];
+extern const int8_t ff_inter_run[102];
 
 extern const uint16_t ff_mpeg4_intra_vlc[103][2];
 extern const int8_t ff_mpeg4_intra_level[102];
@@ -647,9 +647,9 @@ RLTable rl_table[NB_RL_TABLES] = {
     {
         102,
         58,
-        inter_vlc,
-        inter_run,
-        inter_level,
+        ff_inter_vlc,
+        ff_inter_run,
+        ff_inter_level,
     },
 };
 

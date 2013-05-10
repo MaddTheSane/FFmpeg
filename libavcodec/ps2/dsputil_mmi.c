@@ -5,20 +5,20 @@
  * MMI optimization by Leon van Stuivenberg
  * clear_blocks_mmi() by BroadQ
  *
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
@@ -142,7 +142,7 @@ static void put_pixels16_mmi(uint8_t *block, const uint8_t *pixels, int line_siz
 void dsputil_init_mmi(DSPContext* c, AVCodecContext *avctx)
 {
     const int idct_algo= avctx->idct_algo;
-    const int high_bit_depth = avctx->codec_id == CODEC_ID_H264 && avctx->bits_per_raw_sample > 8;
+    const int high_bit_depth = avctx->bits_per_raw_sample > 8;
 
     if (!high_bit_depth) {
     c->clear_blocks = clear_blocks_mmi;
@@ -152,11 +152,12 @@ void dsputil_init_mmi(DSPContext* c, AVCodecContext *avctx)
 
     c->put_pixels_tab[0][0] = put_pixels16_mmi;
     c->put_no_rnd_pixels_tab[0][0] = put_pixels16_mmi;
-    }
 
     c->get_pixels = get_pixels_mmi;
+    }
 
-    if(idct_algo==FF_IDCT_AUTO || idct_algo==FF_IDCT_PS2){
+    if (avctx->bits_per_raw_sample <= 8 &&
+        (idct_algo==FF_IDCT_AUTO || idct_algo==FF_IDCT_PS2)) {
         c->idct_put= ff_mmi_idct_put;
         c->idct_add= ff_mmi_idct_add;
         c->idct    = ff_mmi_idct;

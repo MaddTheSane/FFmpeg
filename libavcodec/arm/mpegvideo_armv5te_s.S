@@ -2,20 +2,20 @@
  * Optimization of some functions from mpegvideo.c for armv5te
  * Copyright (c) 2007 Siarhei Siamashka <ssvb@users.sourceforge.net>
  *
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
@@ -38,15 +38,21 @@
 
 .macro  dequant_t       dst, src, mul, add, tmp
         rsbs            \tmp, ip, \src, asr #16
+        it              gt
         addgt           \tmp, \add, #0
+        it              lt
         rsblt           \tmp, \add, #0
+        it              ne
         smlatbne        \dst, \src, \mul, \tmp
 .endm
 
 .macro  dequant_b       dst, src, mul, add, tmp
         rsbs            \tmp, ip, \src, lsl #16
+        it              gt
         addgt           \tmp, \add, #0
+        it              lt
         rsblt           \tmp, \add, #0
+        it              ne
         smlabbne        \dst, \src, \mul, \tmp
 .endm
 
@@ -80,21 +86,27 @@ function ff_dct_unquantize_h263_armv5te, export=1
         strh            lr, [r0], #2
 
         subs            r3, r3, #8
+        it              gt
         ldrdgt          r4, [r0, #0] /* load data early to avoid load/use pipeline stall */
         bgt             1b
 
         adds            r3, r3, #2
+        it              le
         pople           {r4-r9,pc}
 2:
         ldrsh           r9, [r0, #0]
         ldrsh           lr, [r0, #2]
         mov             r8, r2
         cmp             r9, #0
+        it              lt
         rsblt           r8, r2, #0
+        it              ne
         smlabbne        r9, r9, r1, r8
         mov             r8, r2
         cmp             lr, #0
+        it              lt
         rsblt           r8, r2, #0
+        it              ne
         smlabbne        lr, lr, r1, r8
         strh            r9, [r0], #2
         strh            lr, [r0], #2

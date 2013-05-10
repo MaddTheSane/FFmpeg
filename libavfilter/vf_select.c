@@ -1,20 +1,20 @@
 /*
  * Copyright (c) 2011 Stefano Sabatini
  *
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
@@ -25,6 +25,7 @@
 
 #include "libavutil/eval.h"
 #include "libavutil/fifo.h"
+#include "libavutil/mathematics.h"
 #include "avfilter.h"
 
 static const char *var_names[] = {
@@ -45,18 +46,18 @@ static const char *var_names[] = {
     "prev_selected_t",   ///< previously selected time
 
     "pict_type",         ///< the type of picture in the movie
-    "PICT_TYPE_I",
-    "PICT_TYPE_P",
-    "PICT_TYPE_B",
-    "PICT_TYPE_S",
-    "PICT_TYPE_SI",
-    "PICT_TYPE_SP",
-    "PICT_TYPE_BI",
+    "I",
+    "P",
+    "B",
+    "S",
+    "SI",
+    "SP",
+    "BI",
 
     "interlace_type",    ///< the frame interlace type
-    "INTERLACE_TYPE_P",
-    "INTERLACE_TYPE_T",
-    "INTERLACE_TYPE_B",
+    "PROGRESSIVE",
+    "TOPFIRST",
+    "BOTTOMFIRST",
 
     "n",                 ///< frame number (starting from zero)
     "selected_n",        ///< selected frame number (starting from zero)
@@ -185,9 +186,11 @@ static int select_frame(AVFilterContext *ctx, AVFilterBufferRef *picref)
 
     if (isnan(select->var_values[VAR_START_PTS]))
         select->var_values[VAR_START_PTS] = TS2D(picref->pts);
+    if (isnan(select->var_values[VAR_START_T]))
+        select->var_values[VAR_START_T] = TS2D(picref->pts) * av_q2d(inlink->time_base);
 
     select->var_values[VAR_PTS] = TS2D(picref->pts);
-    select->var_values[VAR_T  ] = picref->pts * av_q2d(inlink->time_base);
+    select->var_values[VAR_T  ] = TS2D(picref->pts) * av_q2d(inlink->time_base);
     select->var_values[VAR_POS] = picref->pos == -1 ? NAN : picref->pos;
     select->var_values[VAR_PREV_PTS] = TS2D(picref ->pts);
 
@@ -315,16 +318,15 @@ static av_cold void uninit(AVFilterContext *ctx)
 {
     SelectContext *select = ctx->priv;
     AVFilterBufferRef *picref;
-    int i;
 
     av_expr_free(select->expr);
     select->expr = NULL;
 
-    for (i = 0; i < av_fifo_size(select->pending_frames)/sizeof(picref); i++) {
-        av_fifo_generic_read(select->pending_frames, &picref, sizeof(picref), NULL);
+    while (select->pending_frames &&
+           av_fifo_generic_read(select->pending_frames, &picref, sizeof(picref), NULL) == sizeof(picref))
         avfilter_unref_buffer(picref);
-    }
     av_fifo_free(select->pending_frames);
+    select->pending_frames = NULL;
 }
 
 AVFilter avfilter_vf_select = {

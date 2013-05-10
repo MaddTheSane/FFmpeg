@@ -2,20 +2,20 @@
  * Misc image conversion routines
  * Copyright (c) 2001, 2002, 2003 Fabrice Bellard
  *
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
@@ -41,9 +41,6 @@
 #if HAVE_MMX && HAVE_YASM
 #include "x86/dsputil_mmx.h"
 #endif
-
-#define xglue(x, y) x ## y
-#define glue(x, y) xglue(x, y)
 
 #define FF_COLOR_RGB      0 /**< RGB color space */
 #define FF_COLOR_GRAY     1 /**< gray color space */
@@ -615,7 +612,8 @@ static enum PixelFormat avcodec_find_best_pix_fmt1(int64_t pix_fmt_mask,
     /* find exact color match with smallest size */
     dst_pix_fmt = PIX_FMT_NONE;
     min_dist = 0x7fffffff;
-    for(i = 0;i < PIX_FMT_NB; i++) {
+    /* test only the first 64 pixel formats to avoid undefined behaviour */
+    for (i = 0; i < 64; i++) {
         if (pix_fmt_mask & (1ULL << i)) {
             loss = avcodec_get_pix_fmt_loss(i, src_pix_fmt, has_alpha) & loss_mask;
             if (loss == 0) {
@@ -789,23 +787,15 @@ int av_picture_crop(AVPicture *dst, const AVPicture *src,
     int y_shift;
     int x_shift;
 
-    if (pix_fmt < 0 || pix_fmt >= PIX_FMT_NB)
+    if (pix_fmt < 0 || pix_fmt >= PIX_FMT_NB || !is_yuv_planar(&pix_fmt_info[pix_fmt]))
         return -1;
 
     y_shift = av_pix_fmt_descriptors[pix_fmt].log2_chroma_h;
     x_shift = av_pix_fmt_descriptors[pix_fmt].log2_chroma_w;
 
-    if (is_yuv_planar(&pix_fmt_info[pix_fmt])) {
     dst->data[0] = src->data[0] + (top_band * src->linesize[0]) + left_band;
     dst->data[1] = src->data[1] + ((top_band >> y_shift) * src->linesize[1]) + (left_band >> x_shift);
     dst->data[2] = src->data[2] + ((top_band >> y_shift) * src->linesize[2]) + (left_band >> x_shift);
-    } else{
-        if(top_band % (1<<y_shift) || left_band % (1<<x_shift))
-            return -1;
-        if(left_band) //FIXME add support for this too
-            return -1;
-        dst->data[0] = src->data[0] + (top_band * src->linesize[0]) + left_band;
-    }
 
     dst->linesize[0] = src->linesize[0];
     dst->linesize[1] = src->linesize[1];
@@ -873,6 +863,7 @@ int av_picture_pad(AVPicture *dst, const AVPicture *src, int height, int width,
     return 0;
 }
 
+#if FF_API_GET_ALPHA_INFO
 /* NOTE: we scan all the pixels to have an exact information */
 static int get_alpha_info_pal8(const AVPicture *src, int width, int height)
 {
@@ -919,6 +910,7 @@ int img_get_alpha_info(const AVPicture *src,
     }
     return ret;
 }
+#endif
 
 #if !(HAVE_MMX && HAVE_YASM)
 /* filter parameters: [-1 4 2 4 -1] // 8 */
@@ -1009,7 +1001,7 @@ static void deinterlace_bottom_field_inplace(uint8_t *src1, int src_wrap,
     uint8_t *src_m1, *src_0, *src_p1, *src_p2;
     int y;
     uint8_t *buf;
-    buf = (uint8_t*)av_malloc(width);
+    buf = av_malloc(width);
 
     src_m1 = src1;
     memcpy(buf,src_m1,width);

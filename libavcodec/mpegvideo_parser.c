@@ -3,20 +3,20 @@
  * Copyright (c) 2000,2001 Fabrice Bellard
  * Copyright (c) 2002-2004 Michael Niedermayer <michaelni@gmx.at>
  *
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
@@ -40,7 +40,7 @@ static void mpegvideo_extract_headers(AVCodecParserContext *s,
 
     while (buf < buf_end) {
         start_code= -1;
-        buf= ff_find_start_code(buf, buf_end, &start_code);
+        buf= avpriv_mpv_find_start_code(buf, buf_end, &start_code);
         bytes_left = buf_end - buf;
         switch(start_code) {
         case PICTURE_START_CODE:
@@ -57,8 +57,8 @@ static void mpegvideo_extract_headers(AVCodecParserContext *s,
                     did_set_size=1;
                 }
                 frame_rate_index = buf[3] & 0xf;
-                pc->frame_rate.den = avctx->time_base.den = ff_frame_rate_tab[frame_rate_index].num;
-                pc->frame_rate.num = avctx->time_base.num = ff_frame_rate_tab[frame_rate_index].den;
+                pc->frame_rate.den = avctx->time_base.den = avpriv_frame_rate_tab[frame_rate_index].num;
+                pc->frame_rate.num = avctx->time_base.num = avpriv_frame_rate_tab[frame_rate_index].den;
                 avctx->bit_rate = ((buf[4]<<10) | (buf[5]<<2) | (buf[6]>>6))*400;
                 avctx->codec_id = CODEC_ID_MPEG1VIDEO;
                 avctx->sub_id = 1;
@@ -151,10 +151,8 @@ static int mpegvideo_parse(AVCodecParserContext *s,
        to have the full timing information. The time take by this
        function should be negligible for uncorrupted streams */
     mpegvideo_extract_headers(s, avctx, buf, buf_size);
-#if 0
-    printf("pict_type=%d frame_rate=%0.3f repeat_pict=%d\n",
-           s->pict_type, (double)avctx->time_base.den / avctx->time_base.num, s->repeat_pict);
-#endif
+    av_dlog(NULL, "pict_type=%d frame_rate=%0.3f repeat_pict=%d\n",
+            s->pict_type, (double)avctx->time_base.den / avctx->time_base.num, s->repeat_pict);
 
     *poutbuf = buf;
     *poutbuf_size = buf_size;
@@ -176,10 +174,9 @@ static int mpegvideo_split(AVCodecContext *avctx,
 }
 
 AVCodecParser ff_mpegvideo_parser = {
-    { CODEC_ID_MPEG1VIDEO, CODEC_ID_MPEG2VIDEO },
-    sizeof(ParseContext1),
-    NULL,
-    mpegvideo_parse,
-    ff_parse1_close,
-    mpegvideo_split,
+    .codec_ids      = { CODEC_ID_MPEG1VIDEO, CODEC_ID_MPEG2VIDEO },
+    .priv_data_size = sizeof(ParseContext1),
+    .parser_parse   = mpegvideo_parse,
+    .parser_close   = ff_parse1_close,
+    .split          = mpegvideo_split,
 };

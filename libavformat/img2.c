@@ -3,20 +3,20 @@
  * Copyright (c) 2000, 2001, 2002 Fabrice Bellard
  * Copyright (c) 2004 Michael Niedermayer
  *
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
@@ -29,7 +29,6 @@
 #include "avformat.h"
 #include "avio_internal.h"
 #include "internal.h"
-#include <strings.h>
 
 typedef struct {
     const AVClass *class;  /**< Class for private options. */
@@ -38,11 +37,11 @@ typedef struct {
     int img_number;
     int img_count;
     int is_pipe;
-    int split_planes;  /**< use independent file for each Y, U, V plane */
     char path[1024];
     char *pixel_format;     /**< Set by a private option. */
     char *video_size;       /**< Set by a private option. */
     char *framerate;        /**< Set by a private option. */
+    int loop;
 } VideoData;
 
 typedef struct {
@@ -67,7 +66,6 @@ static const IdStrMap img_tags[] = {
     { CODEC_ID_MPEG4     , "mpg4-img"},
     { CODEC_ID_FFV1      , "ffv1-img"},
     { CODEC_ID_RAWVIDEO  , "y"},
-    { CODEC_ID_RAWVIDEO  , "raw"},
     { CODEC_ID_BMP       , "bmp"},
     { CODEC_ID_GIF       , "gif"},
     { CODEC_ID_TARGA     , "tga"},
@@ -83,7 +81,6 @@ static const IdStrMap img_tags[] = {
     { CODEC_ID_SUNRAST   , "im8"},
     { CODEC_ID_SUNRAST   , "im24"},
     { CODEC_ID_SUNRAST   , "sunras"},
-    { CODEC_ID_JPEG2000  , "j2k"},
     { CODEC_ID_JPEG2000  , "jp2"},
     { CODEC_ID_JPEG2000  , "jpc"},
     { CODEC_ID_DPX       , "dpx"},
@@ -123,7 +120,7 @@ static enum CodecID av_str2id(const IdStrMap *tags, const char *str)
     str++;
 
     while (tags->id) {
-        if (!strcasecmp(str, tags->str))
+        if (!av_strcasecmp(str, tags->str))
             return tags->id;
 
         tags++;
@@ -218,7 +215,7 @@ static int read_header(AVFormatContext *s1, AVFormatParameters *ap)
 
     s1->ctx_flags |= AVFMTCTX_NOHEADER;
 
-    st = av_new_stream(s1, 0);
+    st = avformat_new_stream(s1, NULL);
     if (!st) {
         return AVERROR(ENOMEM);
     }
@@ -235,15 +232,10 @@ static int read_header(AVFormatContext *s1, AVFormatParameters *ap)
         av_log(s, AV_LOG_ERROR, "Could not parse framerate: %s.\n", s->framerate);
         return ret;
     }
-#if FF_API_FORMAT_PARAMETERS
-    if (ap->pix_fmt != PIX_FMT_NONE)
-        pix_fmt = ap->pix_fmt;
-    if (ap->width > 0)
-        width = ap->width;
-    if (ap->height > 0)
-        height = ap->height;
-    if (ap->time_base.num)
-        framerate = (AVRational){ap->time_base.den, ap->time_base.num};
+
+#if FF_API_LOOP_INPUT
+    if (s1->loop_input)
+        s->loop = s1->loop_input;
 #endif
 
     av_strlcpy(s->path, s1->filename, sizeof(s->path));
@@ -258,7 +250,7 @@ static int read_header(AVFormatContext *s1, AVFormatParameters *ap)
         st->need_parsing = AVSTREAM_PARSE_FULL;
     }
 
-    av_set_pts_info(st, 60, framerate.den, framerate.num);
+    avpriv_set_pts_info(st, 60, framerate.den, framerate.num);
 
     if (width && height) {
         st->codec->width  = width;
@@ -283,8 +275,6 @@ static int read_header(AVFormatContext *s1, AVFormatParameters *ap)
         st->codec->codec_type = AVMEDIA_TYPE_AUDIO;
         st->codec->codec_id = s1->audio_codec_id;
     }else{
-        const char *str= strrchr(s->path, '.');
-        s->split_planes = str && !strcasecmp(str + 1, "y");
         st->codec->codec_type = AVMEDIA_TYPE_VIDEO;
         st->codec->codec_id = av_str2id(img_tags, s->path);
     }
@@ -305,7 +295,7 @@ static int read_packet(AVFormatContext *s1, AVPacket *pkt)
 
     if (!s->is_pipe) {
         /* loop over input */
-        if (s1->loop_input && s->img_number > s->img_last) {
+        if (s->loop && s->img_number > s->img_last) {
             s->img_number = s->img_first;
         }
         if (s->img_number > s->img_last)
@@ -314,7 +304,8 @@ static int read_packet(AVFormatContext *s1, AVPacket *pkt)
                                   s->path, s->img_number)<0 && s->img_number > 1)
             return AVERROR(EIO);
         for(i=0; i<3; i++){
-            if (avio_open(&f[i], filename, AVIO_FLAG_READ) < 0) {
+            if (avio_open2(&f[i], filename, AVIO_FLAG_READ,
+                           &s1->interrupt_callback, NULL) < 0) {
                 if(i==1)
                     break;
                 av_log(s1, AV_LOG_ERROR, "Could not open file : %s\n",filename);
@@ -322,7 +313,7 @@ static int read_packet(AVFormatContext *s1, AVPacket *pkt)
             }
             size[i]= avio_size(f[i]);
 
-            if(!s->split_planes)
+            if(codec->codec_id != CODEC_ID_RAWVIDEO)
                 break;
             filename[ strlen(filename) - 1 ]= 'U' + i;
         }
@@ -331,7 +322,7 @@ static int read_packet(AVFormatContext *s1, AVPacket *pkt)
             infer_size(&codec->width, &codec->height, size[0]);
     } else {
         f[0] = s1->pb;
-        if (url_feof(f[0]))
+        if (f[0]->eof_reached)
             return AVERROR(EIO);
         size[0]= 4096;
     }
@@ -368,7 +359,6 @@ static int read_packet(AVFormatContext *s1, AVPacket *pkt)
 static int write_header(AVFormatContext *s)
 {
     VideoData *img = s->priv_data;
-    const char *str;
 
     img->img_number = 1;
     av_strlcpy(img->path, s->filename, sizeof(img->path));
@@ -379,8 +369,6 @@ static int write_header(AVFormatContext *s)
     else
         img->is_pipe = 1;
 
-    str = strrchr(img->path, '.');
-    img->split_planes = str && !strcasecmp(str + 1, "y");
     return 0;
 }
 
@@ -398,15 +386,16 @@ static int write_packet(AVFormatContext *s, AVPacket *pkt)
             av_log(s, AV_LOG_ERROR,
                    "Could not get frame filename number %d from pattern '%s'\n",
                    img->img_number, img->path);
-            return AVERROR(EINVAL);
+            return AVERROR(EIO);
         }
         for(i=0; i<3; i++){
-            if (avio_open(&pb[i], filename, AVIO_FLAG_WRITE) < 0) {
+            if (avio_open2(&pb[i], filename, AVIO_FLAG_WRITE,
+                           &s->interrupt_callback, NULL) < 0) {
                 av_log(s, AV_LOG_ERROR, "Could not open file : %s\n",filename);
                 return AVERROR(EIO);
             }
 
-            if(!img->split_planes)
+            if(codec->codec_id != CODEC_ID_RAWVIDEO)
                 break;
             filename[ strlen(filename) - 1 ]= 'U' + i;
         }
@@ -414,7 +403,7 @@ static int write_packet(AVFormatContext *s, AVPacket *pkt)
         pb[0] = s->pb;
     }
 
-    if(img->split_planes){
+    if(codec->codec_id == CODEC_ID_RAWVIDEO){
         int ysize = codec->width * codec->height;
         avio_write(pb[0], pkt->data        , ysize);
         avio_write(pb[1], pkt->data + ysize, (pkt->size - ysize)/2);
@@ -443,7 +432,7 @@ static int write_packet(AVFormatContext *s, AVPacket *pkt)
                      (!st->codec->extradata_size &&
                       AV_RL32(pkt->data+4) != MKTAG('j','P',' ',' '))){ // signature
             error:
-                av_log(s, AV_LOG_ERROR, "malformated jpeg2000 codestream\n");
+                av_log(s, AV_LOG_ERROR, "malformed JPEG 2000 codestream\n");
                 return -1;
             }
         }
@@ -463,21 +452,21 @@ static int write_packet(AVFormatContext *s, AVPacket *pkt)
 #define OFFSET(x) offsetof(VideoData, x)
 #define DEC AV_OPT_FLAG_DECODING_PARAM
 static const AVOption options[] = {
-    { "pixel_format", "", OFFSET(pixel_format), FF_OPT_TYPE_STRING, {.str = NULL}, 0, 0, DEC },
-    { "video_size",   "", OFFSET(video_size),   FF_OPT_TYPE_STRING, {.str = NULL}, 0, 0, DEC },
-    { "framerate",    "", OFFSET(framerate),    FF_OPT_TYPE_STRING, {.str = "25"}, 0, 0, DEC },
+    { "pixel_format", "", OFFSET(pixel_format), AV_OPT_TYPE_STRING, {.str = NULL}, 0, 0, DEC },
+    { "video_size",   "", OFFSET(video_size),   AV_OPT_TYPE_STRING, {.str = NULL}, 0, 0, DEC },
+    { "framerate",    "", OFFSET(framerate),    AV_OPT_TYPE_STRING, {.str = "25"}, 0, 0, DEC },
+    { "loop",         "", OFFSET(loop),         AV_OPT_TYPE_INT,    {.dbl = 0},    0, 1, DEC },
     { NULL },
 };
 
+/* input */
+#if CONFIG_IMAGE2_DEMUXER
 static const AVClass img2_class = {
     .class_name = "image2 demuxer",
     .item_name  = av_default_item_name,
     .option     = options,
     .version    = LIBAVUTIL_VERSION_INT,
 };
-
-/* input */
-#if CONFIG_IMAGE2_DEMUXER
 AVInputFormat ff_image2_demuxer = {
     .name           = "image2",
     .long_name      = NULL_IF_CONFIG_SMALL("image2 sequence"),
@@ -490,13 +479,19 @@ AVInputFormat ff_image2_demuxer = {
 };
 #endif
 #if CONFIG_IMAGE2PIPE_DEMUXER
+static const AVClass img2pipe_class = {
+    .class_name = "image2pipe demuxer",
+    .item_name  = av_default_item_name,
+    .option     = options,
+    .version    = LIBAVUTIL_VERSION_INT,
+};
 AVInputFormat ff_image2pipe_demuxer = {
     .name           = "image2pipe",
     .long_name      = NULL_IF_CONFIG_SMALL("piped image2 sequence"),
     .priv_data_size = sizeof(VideoData),
     .read_header    = read_header,
     .read_packet    = read_packet,
-    .priv_class     = &img2_class,
+    .priv_class     = &img2pipe_class,
 };
 #endif
 

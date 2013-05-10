@@ -1,21 +1,21 @@
 /*
  * WMA compatible codec
- * Copyright (c) 2002-2007 The FFmpeg Project
+ * Copyright (c) 2002-2007 The Libav Project
  *
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
@@ -85,7 +85,7 @@ int av_cold ff_wma_get_frame_len_bits(int sample_rate, int version,
     } else if (sample_rate <= 22050 ||
              (sample_rate <= 32000 && version == 1)) {
         frame_len_bits = 10;
-    } else if (sample_rate <= 48000) {
+    } else if (sample_rate <= 48000 || version < 3) {
         frame_len_bits = 11;
     } else if (sample_rate <= 96000) {
         frame_len_bits = 12;
@@ -137,6 +137,9 @@ int ff_wma_init(AVCodecContext *avctx, int flags2)
 
     /* compute MDCT block size */
     s->frame_len_bits = ff_wma_get_frame_len_bits(s->sample_rate, s->version, 0);
+    s->next_block_len_bits = s->frame_len_bits;
+    s->prev_block_len_bits = s->frame_len_bits;
+    s->block_len_bits      = s->frame_len_bits;
 
     s->frame_len = 1 << s->frame_len_bits;
     if (s->use_variable_block_len) {
@@ -414,13 +417,13 @@ int ff_wma_end(AVCodecContext *avctx)
         ff_mdct_end(&s->mdct_ctx[i]);
 
     if (s->use_exp_vlc) {
-        free_vlc(&s->exp_vlc);
+        ff_free_vlc(&s->exp_vlc);
     }
     if (s->use_noise_coding) {
-        free_vlc(&s->hgain_vlc);
+        ff_free_vlc(&s->hgain_vlc);
     }
     for (i = 0; i < 2; i++) {
-        free_vlc(&s->coef_vlc[i]);
+        ff_free_vlc(&s->coef_vlc[i]);
         av_free(s->run_table[i]);
         av_free(s->level_table[i]);
         av_free(s->int_table[i]);

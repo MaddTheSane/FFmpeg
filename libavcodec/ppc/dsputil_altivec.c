@@ -3,20 +3,20 @@
  * Copyright (c) 2002 Dieter Shirley
  * Copyright (c) 2003-2004 Romain Dolbeau <romain@dolbeau.org>
  *
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
@@ -627,16 +627,6 @@ void put_pixels16_altivec(uint8_t *block, const uint8_t *pixels, int line_size, 
 // it's faster than -funroll-loops, but using
 // -funroll-loops w/ this is bad - 74 cycles again.
 // all this is on a 7450, tuning for the 7450
-#if 0
-    for (i = 0; i < h; i++) {
-        pixelsv1 = vec_ld(0, pixels);
-        pixelsv2 = vec_ld(16, pixels);
-        vec_st(vec_perm(pixelsv1, pixelsv2, perm),
-               0, block);
-        pixels+=line_size;
-        block +=line_size;
-    }
-#else
     for (i = 0; i < h; i += 4) {
         pixelsv1  = vec_ld( 0, pixels);
         pixelsv2  = vec_ld(15, pixels);
@@ -657,7 +647,6 @@ void put_pixels16_altivec(uint8_t *block, const uint8_t *pixels, int line_size, 
         pixels+=line_size_4;
         block +=line_size_4;
     }
-#endif
 }
 
 /* next one assumes that ((line_size % 16) == 0) */
@@ -1384,7 +1373,7 @@ static void avg_pixels8_xy2_altivec(uint8_t *block, const uint8_t *pixels, int l
 
 void dsputil_init_altivec(DSPContext* c, AVCodecContext *avctx)
 {
-    const int high_bit_depth = avctx->codec_id == CODEC_ID_H264 && avctx->bits_per_raw_sample > 8;
+    const int high_bit_depth = avctx->bits_per_raw_sample > 8;
 
     c->pix_abs[0][1] = sad16_x2_altivec;
     c->pix_abs[0][2] = sad16_y2_altivec;
@@ -1398,11 +1387,10 @@ void dsputil_init_altivec(DSPContext* c, AVCodecContext *avctx)
     c->sse[0]= sse16_altivec;
     c->pix_sum = pix_sum_altivec;
     c->diff_pixels = diff_pixels_altivec;
-    c->get_pixels = get_pixels_altivec;
-    if (!high_bit_depth)
-    c->clear_block = clear_block_altivec;
     c->add_bytes= add_bytes_altivec;
     if (!high_bit_depth) {
+    c->get_pixels = get_pixels_altivec;
+    c->clear_block = clear_block_altivec;
     c->put_pixels_tab[0][0] = put_pixels16_altivec;
     /* the two functions do the same thing, so use the same code */
     c->put_no_rnd_pixels_tab[0][0] = put_pixels16_altivec;

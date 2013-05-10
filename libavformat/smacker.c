@@ -2,20 +2,20 @@
  * Smacker demuxer
  * Copyright (c) 2006 Konstantin Shishkov
  *
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
@@ -26,16 +26,17 @@
 #include "libavutil/bswap.h"
 #include "libavutil/intreadwrite.h"
 #include "avformat.h"
+#include "internal.h"
 
 #define SMACKER_PAL 0x01
 #define SMACKER_FLAG_RING_FRAME 0x01
 
 enum SAudFlags {
-    SMK_AUD_PACKED  = 0x80000000,
-    SMK_AUD_16BITS  = 0x20000000,
-    SMK_AUD_STEREO  = 0x10000000,
-    SMK_AUD_BINKAUD = 0x08000000,
-    SMK_AUD_USEDCT  = 0x04000000
+    SMK_AUD_PACKED  = 0x80,
+    SMK_AUD_16BITS  = 0x20,
+    SMK_AUD_STEREO  = 0x10,
+    SMK_AUD_BINKAUD = 0x08,
+    SMK_AUD_USEDCT  = 0x04
 };
 
 typedef struct SmackerContext {
@@ -48,6 +49,7 @@ typedef struct SmackerContext {
     uint32_t audio[7];
     uint32_t treesize;
     uint32_t mmap_size, mclr_size, full_size, type_size;
+    uint8_t  aflags[7];
     uint32_t rates[7];
     uint32_t pad;
     /* frame info */
@@ -129,8 +131,10 @@ static int smacker_read_header(AVFormatContext *s, AVFormatParameters *ap)
     smk->mclr_size = avio_rl32(pb);
     smk->full_size = avio_rl32(pb);
     smk->type_size = avio_rl32(pb);
-    for(i = 0; i < 7; i++)
-        smk->rates[i] = avio_rl32(pb);
+    for(i = 0; i < 7; i++) {
+        smk->rates[i]  = avio_rl24(pb);
+        smk->aflags[i] = avio_r8(pb);
+    }
     smk->pad = avio_rl32(pb);
     /* setup data */
     if(smk->frames > 0xFFFFFF) {
@@ -151,7 +155,7 @@ static int smacker_read_header(AVFormatContext *s, AVFormatParameters *ap)
     }
 
     /* init video codec */
-    st = av_new_stream(s, 0);
+    st = avformat_new_stream(s, NULL);
     if (!st)
         return -1;
     smk->videoindex = st->index;
@@ -168,31 +172,31 @@ static int smacker_read_header(AVFormatContext *s, AVFormatParameters *ap)
         smk->pts_inc *= 100;
     tbase = 100000;
     av_reduce(&tbase, &smk->pts_inc, tbase, smk->pts_inc, (1UL<<31)-1);
-    av_set_pts_info(st, 33, smk->pts_inc, tbase);
+    avpriv_set_pts_info(st, 33, smk->pts_inc, tbase);
     st->duration = smk->frames;
     /* handle possible audio streams */
     for(i = 0; i < 7; i++) {
         smk->indexes[i] = -1;
-        if(smk->rates[i] & 0xFFFFFF){
-            ast[i] = av_new_stream(s, 0);
+        if (smk->rates[i]) {
+            ast[i] = avformat_new_stream(s, NULL);
             smk->indexes[i] = ast[i]->index;
             ast[i]->codec->codec_type = AVMEDIA_TYPE_AUDIO;
-            if (smk->rates[i] & SMK_AUD_BINKAUD) {
+            if (smk->aflags[i] & SMK_AUD_BINKAUD) {
                 ast[i]->codec->codec_id = CODEC_ID_BINKAUDIO_RDFT;
-            } else if (smk->rates[i] & SMK_AUD_USEDCT) {
+            } else if (smk->aflags[i] & SMK_AUD_USEDCT) {
                 ast[i]->codec->codec_id = CODEC_ID_BINKAUDIO_DCT;
-            } else if (smk->rates[i] & SMK_AUD_PACKED){
+            } else if (smk->aflags[i] & SMK_AUD_PACKED){
                 ast[i]->codec->codec_id = CODEC_ID_SMACKAUDIO;
                 ast[i]->codec->codec_tag = MKTAG('S', 'M', 'K', 'A');
             } else {
                 ast[i]->codec->codec_id = CODEC_ID_PCM_U8;
             }
-            ast[i]->codec->channels = (smk->rates[i] & SMK_AUD_STEREO) ? 2 : 1;
-            ast[i]->codec->sample_rate = smk->rates[i] & 0xFFFFFF;
-            ast[i]->codec->bits_per_coded_sample = (smk->rates[i] & SMK_AUD_16BITS) ? 16 : 8;
+            ast[i]->codec->channels = (smk->aflags[i] & SMK_AUD_STEREO) ? 2 : 1;
+            ast[i]->codec->sample_rate = smk->rates[i];
+            ast[i]->codec->bits_per_coded_sample = (smk->aflags[i] & SMK_AUD_16BITS) ? 16 : 8;
             if(ast[i]->codec->bits_per_coded_sample == 16 && ast[i]->codec->codec_id == CODEC_ID_PCM_U8)
                 ast[i]->codec->codec_id = CODEC_ID_PCM_S16LE;
-            av_set_pts_info(ast[i], 64, 1, ast[i]->codec->sample_rate
+            avpriv_set_pts_info(ast[i], 64, 1, ast[i]->codec->sample_rate
                     * ast[i]->codec->channels * ast[i]->codec->bits_per_coded_sample / 8);
         }
     }
@@ -234,7 +238,7 @@ static int smacker_read_packet(AVFormatContext *s, AVPacket *pkt)
     int frame_size = 0;
     int palchange = 0;
 
-    if (url_feof(s->pb) || smk->cur_frame >= smk->frames)
+    if (s->pb->eof_reached || smk->cur_frame >= smk->frames)
         return AVERROR_EOF;
 
     /* if we demuxed all streams, pass another frame */
@@ -261,8 +265,15 @@ static int smacker_read_packet(AVFormatContext *s, AVPacket *pkt)
                     sz += (t & 0x7F) + 1;
                     pal += ((t & 0x7F) + 1) * 3;
                 } else if(t & 0x40){ /* copy with offset */
-                    off = avio_r8(s->pb) * 3;
+                    off = avio_r8(s->pb);
                     j = (t & 0x3F) + 1;
+                    if (off + j > 0xff) {
+                        av_log(s, AV_LOG_ERROR,
+                               "Invalid palette update, offset=%d length=%d extends beyond palette size\n",
+                               off, j);
+                        return AVERROR_INVALIDDATA;
+                    }
+                    off *= 3;
                     while(j-- && sz < 256) {
                         *pal++ = oldpal[off + 0];
                         *pal++ = oldpal[off + 1];
@@ -347,11 +358,11 @@ static int smacker_read_close(AVFormatContext *s)
 }
 
 AVInputFormat ff_smacker_demuxer = {
-    "smk",
-    NULL_IF_CONFIG_SMALL("Smacker video"),
-    sizeof(SmackerContext),
-    smacker_probe,
-    smacker_read_header,
-    smacker_read_packet,
-    smacker_read_close,
+    .name           = "smk",
+    .long_name      = NULL_IF_CONFIG_SMALL("Smacker video"),
+    .priv_data_size = sizeof(SmackerContext),
+    .read_probe     = smacker_probe,
+    .read_header    = smacker_read_header,
+    .read_packet    = smacker_read_packet,
+    .read_close     = smacker_read_close,
 };

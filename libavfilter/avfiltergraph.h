@@ -2,20 +2,20 @@
  * Filter graphs
  * copyright (c) 2007 Bobby Bingham
  *
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
@@ -108,32 +108,16 @@ typedef struct AVFilterInOut {
 } AVFilterInOut;
 
 /**
- * Create an AVFilterInOut.
- * Must be free with avfilter_inout_free().
- */
-AVFilterInOut *avfilter_inout_alloc(void);
-
-/**
- * Free the AVFilterInOut in *inout, and set its pointer to NULL.
- * If *inout is NULL, do nothing.
- */
-void avfilter_inout_free(AVFilterInOut **inout);
-
-/**
  * Add a graph described by a string to a graph.
  *
  * @param graph   the filter graph where to link the parsed graph context
  * @param filters string to be parsed
- * @param inputs  linked list to the inputs of the graph, may be NULL.
- *                It is updated to contain the list of open inputs after the parsing,
- *                should be freed with avfilter_inout_free().
- * @param outputs linked list to the outputs of the graph, may be NULL.
- *                It is updated to contain the list of open outputs after the parsing,
- *                should be freed with avfilter_inout_free().
+ * @param inputs  linked list to the inputs of the graph
+ * @param outputs linked list to the outputs of the graph
  * @return zero on success, a negative AVERROR code on error
  */
 int avfilter_graph_parse(AVFilterGraph *graph, const char *filters,
-                         AVFilterInOut **inputs, AVFilterInOut **outputs,
+                         AVFilterInOut *inputs, AVFilterInOut *outputs,
                          void *log_ctx);
 
 #endif /* AVFILTER_AVFILTERGRAPH_H */

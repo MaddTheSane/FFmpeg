@@ -1,26 +1,29 @@
 /*
- * Buffered I/O for ffmpeg system
+ * buffered I/O
  * Copyright (c) 2000,2001 Fabrice Bellard
  *
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include "libavutil/crc.h"
+#include "libavutil/dict.h"
 #include "libavutil/intreadwrite.h"
+#include "libavutil/log.h"
+#include "libavutil/opt.h"
 #include "avformat.h"
 #include "avio.h"
 #include "avio_internal.h"
@@ -37,6 +40,31 @@
  */
 #define SHORT_SEEK_THRESHOLD 4096
 
+#if !FF_API_OLD_AVIO
+static void *ffio_url_child_next(void *obj, void *prev)
+{
+    AVIOContext *s = obj;
+    return prev ? NULL : s->opaque;
+}
+
+static const AVClass *ffio_url_child_class_next(const AVClass *prev)
+{
+    return prev ? NULL : &ffurl_context_class;
+}
+
+static const AVOption ffio_url_options[] = {
+    { NULL },
+};
+
+const AVClass ffio_url_class = {
+    .class_name = "AVIOContext",
+    .item_name  = av_default_item_name,
+    .version    = LIBAVUTIL_VERSION_INT,
+    .option     = ffio_url_options,
+    .child_next = ffio_url_child_next,
+    .child_class_next = ffio_url_child_class_next,
+};
+#endif
 static void fill_buffer(AVIOContext *s);
 static int url_resetbuf(AVIOContext *s, int flags);
 
@@ -140,7 +168,7 @@ static void flush_buffer(AVIOContext *s)
 
 void avio_w8(AVIOContext *s, int b)
 {
-    *(s->buf_ptr)++ = b;
+    *s->buf_ptr++ = b;
     if (s->buf_ptr >= s->buf_end)
         flush_buffer(s);
 }
@@ -237,11 +265,6 @@ int64_t avio_seek(AVIOContext *s, int64_t offset, int whence)
     return offset;
 }
 
-int64_t avio_skip(AVIOContext *s, int64_t offset)
-{
-    return avio_seek(s, offset, SEEK_CUR);
-}
-
 #if FF_API_OLD_AVIO
 int url_fskip(AVIOContext *s, int64_t offset)
 {
@@ -274,18 +297,14 @@ int64_t avio_size(AVIOContext *s)
     return size;
 }
 
+#if FF_API_OLD_AVIO
 int url_feof(AVIOContext *s)
 {
     if(!s)
         return 0;
-    if(s->eof_reached){
-        s->eof_reached=0;
-        fill_buffer(s);
-    }
     return s->eof_reached;
 }
 
-#if FF_API_OLD_AVIO
 int url_ferror(AVIOContext *s)
 {
     if(!s)
@@ -546,6 +565,10 @@ static void fill_buffer(AVIOContext *s)
     int len= s->buffer_size - (dst - s->buffer);
     int max_buffer_size = s->max_packet_size ? s->max_packet_size : IO_BUFFER_SIZE;
 
+    /* can't fill the buffer without read_packet, just set EOF if appropiate */
+    if (!s->read_packet && s->buf_ptr >= s->buf_end)
+        s->eof_reached = 1;
+
     /* no need to do anything if EOF already reached */
     if (s->eof_reached)
         return;
@@ -557,7 +580,7 @@ static void fill_buffer(AVIOContext *s)
     }
 
     /* make buffer smaller in case it ended up large after probing */
-    if (s->read_packet && s->buffer_size > max_buffer_size) {
+    if (s->buffer_size > max_buffer_size) {
         ffio_set_buf_size(s, max_buffer_size);
 
         s->checksum_ptr = dst = s->buffer;
@@ -667,8 +690,8 @@ int avio_read(AVIOContext *s, unsigned char *buf, int size)
         }
     }
     if (size1 == size) {
-        if (s->error)      return s->error;
-        if (url_feof(s))   return AVERROR_EOF;
+        if (s->error)         return s->error;
+        if (s->eof_reached)   return AVERROR_EOF;
     }
     return size1 - size;
 }
@@ -690,8 +713,8 @@ int ffio_read_partial(AVIOContext *s, unsigned char *buf, int size)
     memcpy(buf, s->buf_ptr, len);
     s->buf_ptr += len;
     if (!len) {
-        if (s->error)      return s->error;
-        if (url_feof(s))   return AVERROR_EOF;
+        if (s->error)         return s->error;
+        if (s->eof_reached)   return AVERROR_EOF;
     }
     return len;
 }
@@ -778,13 +801,14 @@ int avio_get_str(AVIOContext *s, int maxlen, char *buf, int buflen)
 {
     int i;
 
+    if (buflen <= 0)
+        return AVERROR(EINVAL);
     // reserve 1 byte for terminating 0
     buflen = FFMIN(buflen - 1, maxlen);
     for (i = 0; i < buflen; i++)
         if (!(buf[i] = avio_r8(s)))
             return i + 1;
-    if (buflen)
-        buf[i] = 0;
+    buf[i] = 0;
     for (; i < maxlen; i++)
         if (!avio_r8(s))
             return i + 1;
@@ -796,6 +820,8 @@ int avio_get_str(AVIOContext *s, int maxlen, char *buf, int buflen)
 {\
     char* q = buf;\
     int ret = 0;\
+    if (buflen <= 0) \
+        return AVERROR(EINVAL); \
     while (ret + 1 < maxlen) {\
         uint8_t tmp;\
         uint32_t ch;\
@@ -847,18 +873,11 @@ int ffio_fdopen(AVIOContext **s, URLContext *h)
     if (!buffer)
         return AVERROR(ENOMEM);
 
-    *s = av_mallocz(sizeof(AVIOContext));
-    if(!*s) {
+    *s = avio_alloc_context(buffer, buffer_size, h->flags & AVIO_FLAG_WRITE, h,
+                            ffurl_read, ffurl_write, ffurl_seek);
+    if (!*s) {
         av_free(buffer);
         return AVERROR(ENOMEM);
-    }
-
-    if (ffio_init_context(*s, buffer, buffer_size,
-                      h->flags & AVIO_FLAG_WRITE, h,
-                      (void*)ffurl_read, (void*)ffurl_write, (void*)ffurl_seek) < 0) {
-        av_free(buffer);
-        av_freep(s);
-        return AVERROR(EIO);
     }
 #if FF_API_OLD_AVIO
     (*s)->is_streamed = h->is_streamed;
@@ -869,6 +888,9 @@ int ffio_fdopen(AVIOContext **s, URLContext *h)
         (*s)->read_pause = (int (*)(void *, int))h->prot->url_read_pause;
         (*s)->read_seek  = (int64_t (*)(void *, int, int64_t, int))h->prot->url_read_seek;
     }
+#if !FF_API_OLD_AVIO
+    (*s)->av_class = &ffio_url_class;
+#endif
     return 0;
 }
 
@@ -942,10 +964,16 @@ int ffio_rewind_with_probe_data(AVIOContext *s, unsigned char *buf, int buf_size
 
 int avio_open(AVIOContext **s, const char *filename, int flags)
 {
+    return avio_open2(s, filename, flags, NULL, NULL);
+}
+
+int avio_open2(AVIOContext **s, const char *filename, int flags,
+               const AVIOInterruptCB *int_cb, AVDictionary **options)
+{
     URLContext *h;
     int err;
 
-    err = ffurl_open(&h, filename, flags);
+    err = ffurl_open(&h, filename, flags, int_cb, options);
     if (err < 0)
         return err;
     err = ffio_fdopen(s, h);
@@ -992,11 +1020,11 @@ char *url_fgets(AVIOContext *s, char *buf, int buf_size)
     char *q;
 
     c = avio_r8(s);
-    if (url_feof(s))
+    if (s->eof_reached)
         return NULL;
     q = buf;
     for(;;) {
-        if (url_feof(s) || c == '\n')
+        if (s->eof_reached || c == '\n')
             break;
         if ((q - buf) < buf_size - 1)
             *q++ = c;

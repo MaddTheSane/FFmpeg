@@ -3,20 +3,20 @@
  * Copyright (c) 2008-2010 Peter Ross (pross@xvid.org)
  * Copyright (c) 2009 Daniel Verkamp (daniel@drv.nu)
  *
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
@@ -30,6 +30,7 @@
 
 #include "libavutil/intreadwrite.h"
 #include "avformat.h"
+#include "internal.h"
 
 enum BinkAudFlags {
     BINK_AUD_16BITS = 0x4000, ///< prefer 16-bit output
@@ -78,7 +79,7 @@ static int read_header(AVFormatContext *s, AVFormatParameters *ap)
     uint16_t flags;
     int keyframe;
 
-    vst = av_new_stream(s, 0);
+    vst = avformat_new_stream(s, NULL);
     if (!vst)
         return AVERROR(ENOMEM);
 
@@ -109,7 +110,7 @@ static int read_header(AVFormatContext *s, AVFormatParameters *ap)
         av_log(s, AV_LOG_ERROR, "invalid header: invalid fps (%d/%d)\n", fps_num, fps_den);
         return AVERROR(EIO);
     }
-    av_set_pts_info(vst, 64, fps_den, fps_num);
+    avpriv_set_pts_info(vst, 64, fps_den, fps_num);
 
     vst->codec->codec_type = AVMEDIA_TYPE_VIDEO;
     vst->codec->codec_id   = CODEC_ID_BINKVIDEO;
@@ -130,19 +131,22 @@ static int read_header(AVFormatContext *s, AVFormatParameters *ap)
         avio_skip(pb, 4 * bink->num_audio_tracks);
 
         for (i = 0; i < bink->num_audio_tracks; i++) {
-            ast = av_new_stream(s, 1);
+            ast = avformat_new_stream(s, NULL);
             if (!ast)
                 return AVERROR(ENOMEM);
             ast->codec->codec_type  = AVMEDIA_TYPE_AUDIO;
+            ast->codec->codec_tag   = 0;
             ast->codec->sample_rate = avio_rl16(pb);
-            av_set_pts_info(ast, 64, 1, ast->codec->sample_rate);
+            avpriv_set_pts_info(ast, 64, 1, ast->codec->sample_rate);
             flags = avio_rl16(pb);
             ast->codec->codec_id = flags & BINK_AUD_USEDCT ?
                                    CODEC_ID_BINKAUDIO_DCT : CODEC_ID_BINKAUDIO_RDFT;
             ast->codec->channels = flags & BINK_AUD_STEREO ? 2 : 1;
-            ast->codec->extradata  = av_mallocz(1 + FF_INPUT_BUFFER_PADDING_SIZE);
-            ast->codec->extradata_size = 1;
-            ast->codec->extradata[0] = vst->codec->codec_tag == MKTAG('B','I','K','b');
+            ast->codec->extradata = av_mallocz(4 + FF_INPUT_BUFFER_PADDING_SIZE);
+            if (!ast->codec->extradata)
+                return AVERROR(ENOMEM);
+            ast->codec->extradata_size = 4;
+            AV_WL32(ast->codec->extradata, vst->codec->codec_tag);
         }
 
         for (i = 0; i < bink->num_audio_tracks; i++)
@@ -261,12 +265,11 @@ static int read_seek(AVFormatContext *s, int stream_index, int64_t timestamp, in
 }
 
 AVInputFormat ff_bink_demuxer = {
-    "bink",
-    NULL_IF_CONFIG_SMALL("Bink"),
-    sizeof(BinkDemuxContext),
-    probe,
-    read_header,
-    read_packet,
-    NULL,
-    read_seek,
+    .name           = "bink",
+    .long_name      = NULL_IF_CONFIG_SMALL("Bink"),
+    .priv_data_size = sizeof(BinkDemuxContext),
+    .read_probe     = probe,
+    .read_header    = read_header,
+    .read_packet    = read_packet,
+    .read_seek      = read_seek,
 };

@@ -2,25 +2,27 @@
  * THP Demuxer
  * Copyright (c) 2007 Marco Gerards
  *
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include "libavutil/intreadwrite.h"
+#include "libavutil/intfloat.h"
 #include "avformat.h"
+#include "internal.h"
 
 typedef struct ThpDemuxContext {
     int              version;
@@ -67,7 +69,7 @@ static int thp_read_header(AVFormatContext *s,
                            avio_rb32(pb); /* Max buf size.  */
                            avio_rb32(pb); /* Max samples.  */
 
-    thp->fps             = av_d2q(av_int2flt(avio_rb32(pb)), INT_MAX);
+    thp->fps             = av_d2q(av_int2float(avio_rb32(pb)), INT_MAX);
     thp->framecnt        = avio_rb32(pb);
     thp->first_framesz   = avio_rb32(pb);
                            avio_rb32(pb); /* Data size.  */
@@ -93,13 +95,13 @@ static int thp_read_header(AVFormatContext *s,
                 break;
 
             /* Video component.  */
-            st = av_new_stream(s, 0);
+            st = avformat_new_stream(s, NULL);
             if (!st)
                 return AVERROR(ENOMEM);
 
             /* The denominator and numerator are switched because 1/fps
                is required.  */
-            av_set_pts_info(st, 64, thp->fps.den, thp->fps.num);
+            avpriv_set_pts_info(st, 64, thp->fps.den, thp->fps.num);
             st->codec->codec_type = AVMEDIA_TYPE_VIDEO;
             st->codec->codec_id = CODEC_ID_THP;
             st->codec->codec_tag = 0;  /* no fourcc */
@@ -116,7 +118,7 @@ static int thp_read_header(AVFormatContext *s,
                 break;
 
             /* Audio component.  */
-            st = av_new_stream(s, 0);
+            st = avformat_new_stream(s, NULL);
             if (!st)
                 return AVERROR(ENOMEM);
 
@@ -126,7 +128,7 @@ static int thp_read_header(AVFormatContext *s,
             st->codec->channels    = avio_rb32(pb); /* numChannels.  */
             st->codec->sample_rate = avio_rb32(pb); /* Frequency.  */
 
-            av_set_pts_info(st, 64, 1, st->codec->sample_rate);
+            avpriv_set_pts_info(st, 64, 1, st->codec->sample_rate);
 
             thp->audio_stream_index = st->index;
             thp->has_audio = 1;
@@ -188,10 +190,10 @@ static int thp_read_packet(AVFormatContext *s,
 }
 
 AVInputFormat ff_thp_demuxer = {
-    "thp",
-    NULL_IF_CONFIG_SMALL("THP"),
-    sizeof(ThpDemuxContext),
-    thp_probe,
-    thp_read_header,
-    thp_read_packet
+    .name           = "thp",
+    .long_name      = NULL_IF_CONFIG_SMALL("THP"),
+    .priv_data_size = sizeof(ThpDemuxContext),
+    .read_probe     = thp_probe,
+    .read_header    = thp_read_header,
+    .read_packet    = thp_read_packet
 };

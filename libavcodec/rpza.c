@@ -2,20 +2,20 @@
  * Quicktime Video (RPZA) Video Decoder
  * Copyright (C) 2003 the ffmpeg project
  *
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
@@ -30,8 +30,8 @@
  * Note that this decoder reads big endian RGB555 pixel values from the
  * bytestream, arranges them in the host's endian order, and outputs
  * them to the final rendered map in the same host endian order. This is
- * intended behavior as the ffmpeg documentation states that RGB555 pixels
- * shall be stored in native CPU endianness.
+ * intended behavior as the libavcodec documentation states that RGB555
+ * pixels shall be stored in native CPU endianness.
  */
 
 #include <stdio.h>
@@ -183,6 +183,8 @@ static void rpza_decode_stream(RpzaContext *s)
             color4[1] |= ((11 * ta + 21 * tb) >> 5);
             color4[2] |= ((21 * ta + 11 * tb) >> 5);
 
+            if (s->size - stream_ptr < n_blocks * 4)
+                return;
             while (n_blocks--) {
                 block_ptr = row_ptr + pixel_ptr;
                 for (pixel_y = 0; pixel_y < 4; pixel_y++) {
@@ -200,6 +202,8 @@ static void rpza_decode_stream(RpzaContext *s)
 
         /* Fill block with 16 colors */
         case 0x00:
+            if (s->size - stream_ptr < 16)
+                return;
             block_ptr = row_ptr + pixel_ptr;
             for (pixel_y = 0; pixel_y < 4; pixel_y++) {
                 for (pixel_x = 0; pixel_x < 4; pixel_x++){
@@ -233,7 +237,6 @@ static av_cold int rpza_decode_init(AVCodecContext *avctx)
     s->avctx = avctx;
     avctx->pix_fmt = PIX_FMT_RGB555;
 
-    avcodec_get_frame_defaults(&s->frame);
     s->frame.data[0] = NULL;
 
     return 0;
@@ -277,14 +280,13 @@ static av_cold int rpza_decode_end(AVCodecContext *avctx)
 }
 
 AVCodec ff_rpza_decoder = {
-    "rpza",
-    AVMEDIA_TYPE_VIDEO,
-    CODEC_ID_RPZA,
-    sizeof(RpzaContext),
-    rpza_decode_init,
-    NULL,
-    rpza_decode_end,
-    rpza_decode_frame,
-    CODEC_CAP_DR1,
+    .name           = "rpza",
+    .type           = AVMEDIA_TYPE_VIDEO,
+    .id             = CODEC_ID_RPZA,
+    .priv_data_size = sizeof(RpzaContext),
+    .init           = rpza_decode_init,
+    .close          = rpza_decode_end,
+    .decode         = rpza_decode_frame,
+    .capabilities   = CODEC_CAP_DR1,
     .long_name = NULL_IF_CONFIG_SMALL("QuickTime video (RPZA)"),
 };

@@ -2,20 +2,20 @@
  * Alpha optimized DSP utils
  * Copyright (c) 2002 Falk Hueffner <falk@debian.org>
  *
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
@@ -270,7 +270,7 @@ static void put_pixels16_axp_asm(uint8_t *block, const uint8_t *pixels,
 
 void dsputil_init_alpha(DSPContext* c, AVCodecContext *avctx)
 {
-    const int high_bit_depth = avctx->codec_id == CODEC_ID_H264 && avctx->bits_per_raw_sample > 8;
+    const int high_bit_depth = avctx->bits_per_raw_sample > 8;
 
     if (!high_bit_depth) {
     c->put_pixels_tab[0][0] = put_pixels16_axp_asm;
@@ -321,7 +321,8 @@ void dsputil_init_alpha(DSPContext* c, AVCodecContext *avctx)
         c->put_pixels_clamped = put_pixels_clamped_mvi_asm;
         c->add_pixels_clamped = add_pixels_clamped_mvi_asm;
 
-        c->get_pixels       = get_pixels_mvi;
+        if (!high_bit_depth)
+            c->get_pixels   = get_pixels_mvi;
         c->diff_pixels      = diff_pixels_mvi;
         c->sad[0]           = pix_abs16x16_mvi_asm;
         c->sad[1]           = pix_abs8x8_mvi;
@@ -335,7 +336,7 @@ void dsputil_init_alpha(DSPContext* c, AVCodecContext *avctx)
     put_pixels_clamped_axp_p = c->put_pixels_clamped;
     add_pixels_clamped_axp_p = c->add_pixels_clamped;
 
-    if (!avctx->lowres &&
+    if (!avctx->lowres && avctx->bits_per_raw_sample <= 8 &&
         (avctx->idct_algo == FF_IDCT_AUTO ||
          avctx->idct_algo == FF_IDCT_SIMPLEALPHA)) {
         c->idct_put = ff_simple_idct_put_axp;

@@ -1,9 +1,7 @@
 #!/bin/sh
 
 # check for git short hash
-if ! test "$revision"; then
-    revision=$(cd "$1" && git describe --tags --match N 2> /dev/null)
-fi
+revision=$(cd "$1" && git describe --always 2> /dev/null)
 
 # no revision number found
 test "$revision" || revision=$(cd "$1" && cat RELEASE 2> /dev/null)
@@ -19,7 +17,7 @@ if [ -z "$2" ]; then
     exit
 fi
 
-NEW_REVISION="#define FFMPEG_VERSION \"$version\""
+NEW_REVISION="#define LIBAV_VERSION \"$version\""
 OLD_REVISION=$(cat version.h 2> /dev/null)
 
 # Update version.h only on revision changes to avoid spurious rebuilds

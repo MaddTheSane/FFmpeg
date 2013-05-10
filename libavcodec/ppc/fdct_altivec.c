@@ -1,20 +1,20 @@
 /*
  * Copyright (C) 2003  James Klicman <james@klicman.org>
  *
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
@@ -265,7 +265,6 @@ void fdct_altivec(int16_t *block)
  * conversion to vector float.  The following code section takes advantage
  * of this.
  */
-#if 1
     /* fdct rows {{{ */
     x0 = ((vector float)vec_add(vs16(b00), vs16(b70)));
     x7 = ((vector float)vec_sub(vs16(b00), vs16(b70)));
@@ -389,29 +388,6 @@ void fdct_altivec(int16_t *block)
     b31 = vec_add(b31, x2);
     b11 = vec_add(b11, x3);
     /* }}} */
-#else
-    /* convert to float {{{ */
-#define CTF(n) \
-    vs32(b##n##1) = vec_unpackl(vs16(b##n##0)); \
-    vs32(b##n##0) = vec_unpackh(vs16(b##n##0)); \
-    b##n##1 = vec_ctf(vs32(b##n##1), 0); \
-    b##n##0 = vec_ctf(vs32(b##n##0), 0); \
-
-    CTF(0);
-    CTF(1);
-    CTF(2);
-    CTF(3);
-    CTF(4);
-    CTF(5);
-    CTF(6);
-    CTF(7);
-
-#undef CTF
-    /* }}} */
-
-    FDCTROW(b00, b10, b20, b30, b40, b50, b60, b70);
-    FDCTROW(b01, b11, b21, b31, b41, b51, b61, b71);
-#endif
 
 
     /* 8x8 matrix transpose (vector float[8][2]) {{{ */

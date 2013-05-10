@@ -75,9 +75,9 @@
 .endm
 
 function fft4_neon
-        vld1.16         {d0-d1},  [r0,:128]
+        vld1.16         {d0-d1},  [r0]
         fft4            d0,  d1,  d2,  d3
-        vst1.16         {d0-d1},  [r0,:128]
+        vst1.16         {d0-d1},  [r0]
         bx              lr
 endfunc
 
@@ -122,7 +122,7 @@ endfunc
 
 function fft_pass_neon
         push            {r4,lr}
-        movrel          lr,  coefs+24
+        movrel          lr,  coefs + 24
         vld1.16         {d30},    [lr,:64]
         lsl             r12, r2,  #3
         vmov            d31, d30

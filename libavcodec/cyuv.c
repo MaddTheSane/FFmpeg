@@ -6,20 +6,20 @@
  *
  * Copyright (C) 2003 the ffmpeg project
  *
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
@@ -53,7 +53,6 @@ static av_cold int cyuv_decode_init(AVCodecContext *avctx)
         return -1;
     s->height = avctx->height;
     avctx->pix_fmt = PIX_FMT_YUV411P;
-    avcodec_get_frame_defaults(&s->frame);
 
     return 0;
 }
@@ -180,32 +179,28 @@ static av_cold int cyuv_decode_end(AVCodecContext *avctx)
 
 #if CONFIG_AURA_DECODER
 AVCodec ff_aura_decoder = {
-    "aura",
-    AVMEDIA_TYPE_VIDEO,
-    CODEC_ID_AURA,
-    sizeof(CyuvDecodeContext),
-    cyuv_decode_init,
-    NULL,
-    cyuv_decode_end,
-    cyuv_decode_frame,
-    CODEC_CAP_DR1,
-    NULL,
+    .name           = "aura",
+    .type           = AVMEDIA_TYPE_VIDEO,
+    .id             = CODEC_ID_AURA,
+    .priv_data_size = sizeof(CyuvDecodeContext),
+    .init           = cyuv_decode_init,
+    .close          = cyuv_decode_end,
+    .decode         = cyuv_decode_frame,
+    .capabilities   = CODEC_CAP_DR1,
     .long_name = NULL_IF_CONFIG_SMALL("Auravision AURA"),
 };
 #endif
 
 #if CONFIG_CYUV_DECODER
 AVCodec ff_cyuv_decoder = {
-    "cyuv",
-    AVMEDIA_TYPE_VIDEO,
-    CODEC_ID_CYUV,
-    sizeof(CyuvDecodeContext),
-    cyuv_decode_init,
-    NULL,
-    cyuv_decode_end,
-    cyuv_decode_frame,
-    CODEC_CAP_DR1,
-    NULL,
+    .name           = "cyuv",
+    .type           = AVMEDIA_TYPE_VIDEO,
+    .id             = CODEC_ID_CYUV,
+    .priv_data_size = sizeof(CyuvDecodeContext),
+    .init           = cyuv_decode_init,
+    .close          = cyuv_decode_end,
+    .decode         = cyuv_decode_frame,
+    .capabilities   = CODEC_CAP_DR1,
     .long_name = NULL_IF_CONFIG_SMALL("Creative YUV (CYUV)"),
 };
 #endif

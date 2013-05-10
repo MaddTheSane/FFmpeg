@@ -2,20 +2,20 @@
  * CD Graphics Video Decoder
  * Copyright (c) 2009 Michael Tison
  *
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
@@ -26,8 +26,8 @@
  * @file
  * @brief CD Graphics Video Decoder
  * @author Michael Tison
- * @sa http://wiki.multimedia.cx/index.php?title=CD_Graphics
- * @sa http://www.ccs.neu.edu/home/bchafy/cdb/info/cdg
+ * @see http://wiki.multimedia.cx/index.php?title=CD_Graphics
+ * @see http://www.ccs.neu.edu/home/bchafy/cdb/info/cdg
  */
 
 /// default screen sizes
@@ -368,14 +368,13 @@ static av_cold int cdg_decode_end(AVCodecContext *avctx)
 }
 
 AVCodec ff_cdgraphics_decoder = {
-    "cdgraphics",
-    AVMEDIA_TYPE_VIDEO,
-    CODEC_ID_CDGRAPHICS,
-    sizeof(CDGraphicsContext),
-    cdg_decode_init,
-    NULL,
-    cdg_decode_end,
-    cdg_decode_frame,
-    CODEC_CAP_DR1,
+    .name           = "cdgraphics",
+    .type           = AVMEDIA_TYPE_VIDEO,
+    .id             = CODEC_ID_CDGRAPHICS,
+    .priv_data_size = sizeof(CDGraphicsContext),
+    .init           = cdg_decode_init,
+    .close          = cdg_decode_end,
+    .decode         = cdg_decode_frame,
+    .capabilities   = CODEC_CAP_DR1,
     .long_name = NULL_IF_CONFIG_SMALL("CD Graphics video"),
 };

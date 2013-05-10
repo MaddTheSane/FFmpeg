@@ -3,20 +3,20 @@
  * Copyright (c) 2005 BBC, Andrew Kennedy <dirac at rd dot bbc dot co dot uk>
  * Copyright (c) 2006-2008 BBC, Anuradha Suraparaju <asuraparaju at gmail dot com >
  *
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
@@ -37,34 +37,34 @@
 #include <libdirac_decoder/dirac_parser.h>
 
 /** contains a single frame returned from Dirac */
-typedef struct FfmpegDiracDecoderParams {
+typedef struct DiracDecoderParams {
     /** decoder handle */
     dirac_decoder_t* p_decoder;
 
     /** buffer to hold decoded frame */
     unsigned char* p_out_frame_buf;
-} FfmpegDiracDecoderParams;
+} DiracDecoderParams;
 
 
 /**
-* returns FFmpeg chroma format
+* returns Libav chroma format
 */
-static enum PixelFormat GetFfmpegChromaFormat(dirac_chroma_t dirac_pix_fmt)
+static enum PixelFormat get_chroma_format(dirac_chroma_t dirac_pix_fmt)
 {
-    int num_formats = sizeof(ffmpeg_dirac_pixel_format_map) /
-                      sizeof(ffmpeg_dirac_pixel_format_map[0]);
+    int num_formats = sizeof(dirac_pixel_format_map) /
+                      sizeof(dirac_pixel_format_map[0]);
     int idx;
 
     for (idx = 0; idx < num_formats; ++idx)
-        if (ffmpeg_dirac_pixel_format_map[idx].dirac_pix_fmt == dirac_pix_fmt)
-            return ffmpeg_dirac_pixel_format_map[idx].ff_pix_fmt;
+        if (dirac_pixel_format_map[idx].dirac_pix_fmt == dirac_pix_fmt)
+            return dirac_pixel_format_map[idx].ff_pix_fmt;
     return PIX_FMT_NONE;
 }
 
 static av_cold int libdirac_decode_init(AVCodecContext *avccontext)
 {
 
-    FfmpegDiracDecoderParams *p_dirac_params = avccontext->priv_data;
+    DiracDecoderParams *p_dirac_params = avccontext->priv_data;
     p_dirac_params->p_decoder =  dirac_decoder_init(avccontext->debug);
 
     if (!p_dirac_params->p_decoder)
@@ -80,7 +80,7 @@ static int libdirac_decode_frame(AVCodecContext *avccontext,
     const uint8_t *buf = avpkt->data;
     int buf_size = avpkt->size;
 
-    FfmpegDiracDecoderParams *p_dirac_params = avccontext->priv_data;
+    DiracDecoderParams *p_dirac_params = avccontext->priv_data;
     AVPicture *picture = data;
     AVPicture pic;
     int pict_size;
@@ -103,7 +103,7 @@ static int libdirac_decode_frame(AVCodecContext *avccontext,
 
         case STATE_SEQUENCE:
         {
-            /* tell FFmpeg about sequence details */
+            /* tell Libav about sequence details */
             dirac_sourceparams_t *src_params = &p_dirac_params->p_decoder->src_params;
 
             if (av_image_check_size(src_params->width, src_params->height,
@@ -117,7 +117,7 @@ static int libdirac_decode_frame(AVCodecContext *avccontext,
             avccontext->height = src_params->height;
             avccontext->width  = src_params->width;
 
-            avccontext->pix_fmt = GetFfmpegChromaFormat(src_params->chroma);
+            avccontext->pix_fmt = get_chroma_format(src_params->chroma);
             if (avccontext->pix_fmt == PIX_FMT_NONE) {
                 av_log(avccontext, AV_LOG_ERROR,
                        "Dirac chroma format %d not supported currently\n",
@@ -174,7 +174,7 @@ static int libdirac_decode_frame(AVCodecContext *avccontext,
 
 static av_cold int libdirac_decode_close(AVCodecContext *avccontext)
 {
-    FfmpegDiracDecoderParams *p_dirac_params = avccontext->priv_data;
+    DiracDecoderParams *p_dirac_params = avccontext->priv_data;
     dirac_decoder_close(p_dirac_params->p_decoder);
 
     av_freep(&p_dirac_params->p_out_frame_buf);
@@ -195,15 +195,14 @@ static void libdirac_flush(AVCodecContext *avccontext)
 
 
 AVCodec ff_libdirac_decoder = {
-    "libdirac",
-    AVMEDIA_TYPE_VIDEO,
-    CODEC_ID_DIRAC,
-    sizeof(FfmpegDiracDecoderParams),
-    libdirac_decode_init,
-    NULL,
-    libdirac_decode_close,
-    libdirac_decode_frame,
-    CODEC_CAP_DELAY,
+    .name           = "libdirac",
+    .type           = AVMEDIA_TYPE_VIDEO,
+    .id             = CODEC_ID_DIRAC,
+    .priv_data_size = sizeof(DiracDecoderParams),
+    .init           = libdirac_decode_init,
+    .close          = libdirac_decode_close,
+    .decode         = libdirac_decode_frame,
+    .capabilities   = CODEC_CAP_DELAY,
     .flush = libdirac_flush,
     .long_name = NULL_IF_CONFIG_SMALL("libdirac Dirac 2.2"),
 };

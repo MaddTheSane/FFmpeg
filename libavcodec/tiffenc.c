@@ -2,28 +2,32 @@
  * TIFF image encoder
  * Copyright (c) 2007 Bartlomiej Wolowiec
  *
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 /**
- * TIFF image encoder
  * @file
+ * TIFF image encoder
  * @author Bartlomiej Wolowiec
  */
+
+#include "libavutil/log.h"
+#include "libavutil/opt.h"
+
 #include "avcodec.h"
 #if CONFIG_ZLIB
 #include <zlib.h>
@@ -42,6 +46,7 @@ static const uint8_t type_sizes2[6] = {
 };
 
 typedef struct TiffEncoderContext {
+    AVClass *class;                     ///< for private options
     AVCodecContext *avctx;
     AVFrame picture;
 
@@ -210,12 +215,13 @@ static int encode_frame(AVCodecContext * avctx, unsigned char *buf,
     uint32_t *strip_offsets = NULL;
     int bytes_per_row;
     uint32_t res[2] = { 72, 1 };        // image resolution (72/1)
-    uint16_t bpp_tab[] = { 8, 8, 8, 8 };
+    static const uint16_t bpp_tab[] = { 8, 8, 8, 8 };
     int ret = -1;
     int is_yuv = 0;
     uint8_t *yuv_line = NULL;
     int shift_h, shift_v;
 
+    s->avctx = avctx;
     s->buf_start = buf;
     s->buf = &ptr;
     s->buf_size = buf_size;
@@ -225,7 +231,11 @@ static int encode_frame(AVCodecContext * avctx, unsigned char *buf,
     p->key_frame = 1;
     avctx->coded_frame= &s->picture;
 
-    s->compr = TIFF_PACKBITS;
+#if FF_API_TIFFENC_COMPLEVEL
+    if (avctx->compression_level != FF_COMPRESSION_DEFAULT)
+        av_log(avctx, AV_LOG_WARNING, "Using compression_level to set compression "
+               "algorithm is deprecated. Please use the compression_algo private "
+               "option instead.\n");
     if (avctx->compression_level == 0) {
         s->compr = TIFF_RAW;
     } else if(avctx->compression_level == 2) {
@@ -235,6 +245,7 @@ static int encode_frame(AVCodecContext * avctx, unsigned char *buf,
         s->compr = TIFF_DEFLATE;
 #endif
     }
+#endif
 
     s->width = avctx->width;
     s->height = avctx->height;
@@ -255,10 +266,12 @@ static int encode_frame(AVCodecContext * avctx, unsigned char *buf,
         s->photometric_interpretation = 3;
         break;
     case PIX_FMT_MONOBLACK:
+        s->bpp = 1;
+        s->photometric_interpretation = 1;
+        break;
     case PIX_FMT_MONOWHITE:
         s->bpp = 1;
-        s->photometric_interpretation = avctx->pix_fmt == PIX_FMT_MONOBLACK;
-        bpp_tab[0] = 1;
+        s->photometric_interpretation = 0;
         break;
     case PIX_FMT_YUV420P:
     case PIX_FMT_YUV422P:
@@ -280,7 +293,7 @@ static int encode_frame(AVCodecContext * avctx, unsigned char *buf,
         return -1;
     }
     if (!is_yuv)
-        s->bpp_tab_size = ((s->bpp + 7) >> 3);
+        s->bpp_tab_size = (s->bpp >> 3);
 
     if (s->compr == TIFF_DEFLATE || s->compr == TIFF_ADOBE_DEFLATE || s->compr == TIFF_LZW)
         //best choose for DEFLATE
@@ -303,6 +316,10 @@ static int encode_frame(AVCodecContext * avctx, unsigned char *buf,
 
     strip_sizes = av_mallocz(sizeof(*strip_sizes) * strips);
     strip_offsets = av_mallocz(sizeof(*strip_offsets) * strips);
+    if (!strip_sizes || !strip_offsets) {
+        ret = AVERROR(ENOMEM);
+        goto fail;
+    }
 
     bytes_per_row = (((s->width - 1)/s->subsampling[0] + 1) * s->bpp
                     * s->subsampling[0] * s->subsampling[1] + 7) >> 3;
@@ -310,6 +327,7 @@ static int encode_frame(AVCodecContext * avctx, unsigned char *buf,
         yuv_line = av_malloc(bytes_per_row);
         if (yuv_line == NULL){
             av_log(s->avctx, AV_LOG_ERROR, "Not enough memory\n");
+            ret = AVERROR(ENOMEM);
             goto fail;
         }
     }
@@ -322,6 +340,10 @@ static int encode_frame(AVCodecContext * avctx, unsigned char *buf,
 
         zlen = bytes_per_row * s->rps;
         zbuf = av_malloc(zlen);
+        if (!zbuf) {
+            ret = AVERROR(ENOMEM);
+            goto fail;
+        }
         strip_offsets[0] = ptr - buf;
         zn = 0;
         for (j = 0; j < s->rps; j++) {
@@ -346,8 +368,13 @@ static int encode_frame(AVCodecContext * avctx, unsigned char *buf,
     } else
 #endif
     {
-        if(s->compr == TIFF_LZW)
+        if (s->compr == TIFF_LZW) {
             s->lzws = av_malloc(ff_lzw_encode_state_size);
+            if (!s->lzws) {
+                ret = AVERROR(ENOMEM);
+                goto fail;
+            }
+        }
         for (i = 0; i < s->height; i++) {
             if (strip_sizes[i / s->rps] == 0) {
                 if(s->compr == TIFF_LZW){
@@ -440,17 +467,32 @@ fail:
     return ret;
 }
 
+#define OFFSET(x) offsetof(TiffEncoderContext, x)
+#define VE AV_OPT_FLAG_VIDEO_PARAM | AV_OPT_FLAG_ENCODING_PARAM
+static const AVOption options[] = {
+    { "compression_algo", NULL, OFFSET(compr), AV_OPT_TYPE_INT, {TIFF_PACKBITS}, TIFF_RAW, TIFF_DEFLATE, VE, "compression_algo" },
+    { "packbits", NULL, 0, AV_OPT_TYPE_CONST, {TIFF_PACKBITS}, 0, 0, VE, "compression_algo" },
+    { "raw",      NULL, 0, AV_OPT_TYPE_CONST, {TIFF_RAW},      0, 0, VE, "compression_algo" },
+    { "lzw",      NULL, 0, AV_OPT_TYPE_CONST, {TIFF_LZW},      0, 0, VE, "compression_algo" },
+#if CONFIG_ZLIB
+    { "deflate",  NULL, 0, AV_OPT_TYPE_CONST, {TIFF_DEFLATE},  0, 0, VE, "compression_algo" },
+#endif
+    { NULL },
+};
+
+static const AVClass tiffenc_class = {
+    .class_name = "TIFF encoder",
+    .item_name  = av_default_item_name,
+    .option     = options,
+    .version    = LIBAVUTIL_VERSION_INT,
+};
+
 AVCodec ff_tiff_encoder = {
-    "tiff",
-    AVMEDIA_TYPE_VIDEO,
-    CODEC_ID_TIFF,
-    sizeof(TiffEncoderContext),
-    NULL,
-    encode_frame,
-    NULL,
-    NULL,
-    0,
-    NULL,
+    .name           = "tiff",
+    .type           = AVMEDIA_TYPE_VIDEO,
+    .id             = CODEC_ID_TIFF,
+    .priv_data_size = sizeof(TiffEncoderContext),
+    .encode         = encode_frame,
     .pix_fmts =
         (const enum PixelFormat[]) {PIX_FMT_RGB24, PIX_FMT_PAL8, PIX_FMT_GRAY8,
                               PIX_FMT_MONOBLACK, PIX_FMT_MONOWHITE,
@@ -459,4 +501,5 @@ AVCodec ff_tiff_encoder = {
                               PIX_FMT_YUV411P,
                               PIX_FMT_NONE},
     .long_name = NULL_IF_CONFIG_SMALL("TIFF image"),
+    .priv_class     = &tiffenc_class,
 };

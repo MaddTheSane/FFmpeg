@@ -2,33 +2,37 @@
  * Musepack decoder
  * Copyright (c) 2006 Konstantin Shishkov
  *
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef AVCODEC_MPCDATA_H
 #define AVCODEC_MPCDATA_H
 
-static const float mpc_CC[18] = {
-    65536.0000, 21845.3333, 13107.2000, 9362.2857, 7281.7778, 4369.0667, 2114.0645,
+static const float mpc_CC[18+1] = {
+    111.285962475327f, // 32768/2/255*sqrt(3)
+    65536.0000 /* this value is never used */,
+    21845.3333, 13107.2000, 9362.2857, 7281.7778, 4369.0667, 2114.0645,
     1040.2539, 516.0315, 257.0039, 128.2505, 64.0626, 32.0156, 16.0039, 8.0010,
     4.0002, 2.0001, 1.0000
 };
 
-static const float mpc_SCF[128] = {
+static const float mpc_SCF[128+6] = {
+    920.016296386718750000, 766.355773925781250000, 638.359558105468750000,
+    531.741149902343750000, 442.930114746093750000, 368.952209472656250000,
     307.330047607421875000, 255.999984741210937500, 213.243041992187500000, 177.627334594726562500,
     147.960128784179687500, 123.247924804687500000, 102.663139343261718750, 85.516410827636718750,
     71.233520507812500000, 59.336143493652343750, 49.425861358642578125, 41.170787811279296875,

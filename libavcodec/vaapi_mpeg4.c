@@ -3,20 +3,20 @@
  *
  * Copyright (C) 2008-2009 Splitted-Desktop Systems
  *
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
@@ -79,7 +79,7 @@ static int vaapi_mpeg4_start_frame(AVCodecContext *avctx, av_unused const uint8_
     pic_param->quant_precision                          = s->quant_precision;
     pic_param->vop_fields.value                         = 0; /* reset all bits */
     pic_param->vop_fields.bits.vop_coding_type          = s->pict_type - AV_PICTURE_TYPE_I;
-    pic_param->vop_fields.bits.backward_reference_vop_coding_type = s->pict_type == AV_PICTURE_TYPE_B ? s->next_picture.pict_type - AV_PICTURE_TYPE_I : 0;
+    pic_param->vop_fields.bits.backward_reference_vop_coding_type = s->pict_type == AV_PICTURE_TYPE_B ? s->next_picture.f.pict_type - AV_PICTURE_TYPE_I : 0;
     pic_param->vop_fields.bits.vop_rounding_type        = s->no_rounding;
     pic_param->vop_fields.bits.intra_dc_vlc_thr         = mpeg4_get_intra_dc_vlc_thr(s);
     pic_param->vop_fields.bits.top_field_first          = s->top_field_first;
@@ -98,7 +98,7 @@ static int vaapi_mpeg4_start_frame(AVCodecContext *avctx, av_unused const uint8_
         pic_param->forward_reference_picture  = ff_vaapi_get_surface_id(&s->last_picture);
 
     /* Fill in VAIQMatrixBufferMPEG4 */
-    /* Only the first inverse quantisation method uses the weighthing matrices */
+    /* Only the first inverse quantisation method uses the weighting matrices */
     if (pic_param->vol_fields.bits.quant_type) {
         iq_matrix = ff_vaapi_alloc_iq_matrix(vactx, sizeof(VAIQMatrixBufferMPEG4));
         if (!iq_matrix)
@@ -129,7 +129,7 @@ static int vaapi_mpeg4_decode_slice(AVCodecContext *avctx, const uint8_t *buffer
 
     /* video_plane_with_short_video_header() contains all GOBs
      * in-order, and this is what VA API (Intel backend) expects: only
-     * a single slice param. So fake macroblock_number for FFmpeg so
+     * a single slice param. So fake macroblock_number for Libav so
      * that we don't call vaapi_mpeg4_decode_slice() again
      */
     if (avctx->codec->id == CODEC_ID_H263)
@@ -155,11 +155,9 @@ AVHWAccel ff_mpeg4_vaapi_hwaccel = {
     .type           = AVMEDIA_TYPE_VIDEO,
     .id             = CODEC_ID_MPEG4,
     .pix_fmt        = PIX_FMT_VAAPI_VLD,
-    .capabilities   = 0,
     .start_frame    = vaapi_mpeg4_start_frame,
     .end_frame      = vaapi_mpeg4_end_frame,
     .decode_slice   = vaapi_mpeg4_decode_slice,
-    .priv_data_size = 0,
 };
 #endif
 
@@ -169,10 +167,8 @@ AVHWAccel ff_h263_vaapi_hwaccel = {
     .type           = AVMEDIA_TYPE_VIDEO,
     .id             = CODEC_ID_H263,
     .pix_fmt        = PIX_FMT_VAAPI_VLD,
-    .capabilities   = 0,
     .start_frame    = vaapi_mpeg4_start_frame,
     .end_frame      = vaapi_mpeg4_end_frame,
     .decode_slice   = vaapi_mpeg4_decode_slice,
-    .priv_data_size = 0,
 };
 #endif

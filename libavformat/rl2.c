@@ -2,20 +2,20 @@
  * RL2 Format Demuxer
  * Copyright (c) 2008 Sascha Sommer (saschasommer@freenet.de)
  *
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
@@ -23,8 +23,7 @@
  * RL2 file demuxer
  * @file
  * @author Sascha Sommer (saschasommer@freenet.de)
- * For more information regarding the RL2 file format, visit:
- *   http://wiki.multimedia.cx/index.php?title=RL2
+ * @see http://wiki.multimedia.cx/index.php?title=RL2
  *
  * extradata:
  * 2 byte le initial drawing offset within 320x200 viewport
@@ -34,7 +33,9 @@
  */
 
 #include "libavutil/intreadwrite.h"
+#include "libavutil/mathematics.h"
 #include "avformat.h"
+#include "internal.h"
 
 #define EXTRADATA1_SIZE (6 + 256 * 3) ///< video base, clr, palette
 
@@ -110,7 +111,7 @@ static av_cold int rl2_read_header(AVFormatContext *s,
     def_sound_size = avio_rl16(pb);
 
     /** setup video stream */
-    st = av_new_stream(s, 0);
+    st = avformat_new_stream(s, NULL);
     if(!st)
          return AVERROR(ENOMEM);
 
@@ -140,7 +141,7 @@ static av_cold int rl2_read_header(AVFormatContext *s,
         pts_num = def_sound_size;
         pts_den = rate;
 
-        st = av_new_stream(s, 0);
+        st = avformat_new_stream(s, NULL);
         if (!st)
             return AVERROR(ENOMEM);
         st->codec->codec_type = AVMEDIA_TYPE_AUDIO;
@@ -153,10 +154,10 @@ static av_cold int rl2_read_header(AVFormatContext *s,
             st->codec->bits_per_coded_sample;
         st->codec->block_align = st->codec->channels *
             st->codec->bits_per_coded_sample / 8;
-        av_set_pts_info(st,32,1,rate);
+        avpriv_set_pts_info(st,32,1,rate);
     }
 
-    av_set_pts_info(s->streams[0], 32, pts_num, pts_den);
+    avpriv_set_pts_info(s->streams[0], 32, pts_num, pts_den);
 
     chunk_size =   av_malloc(frame_count * sizeof(uint32_t));
     audio_size =   av_malloc(frame_count * sizeof(uint32_t));
@@ -286,13 +287,12 @@ static int rl2_read_seek(AVFormatContext *s, int stream_index, int64_t timestamp
 }
 
 AVInputFormat ff_rl2_demuxer = {
-    "rl2",
-    NULL_IF_CONFIG_SMALL("RL2 format"),
-    sizeof(Rl2DemuxContext),
-    rl2_probe,
-    rl2_read_header,
-    rl2_read_packet,
-    NULL,
-    rl2_read_seek,
+    .name           = "rl2",
+    .long_name      = NULL_IF_CONFIG_SMALL("RL2 format"),
+    .priv_data_size = sizeof(Rl2DemuxContext),
+    .read_probe     = rl2_probe,
+    .read_header    = rl2_read_header,
+    .read_packet    = rl2_read_packet,
+    .read_seek      = rl2_read_seek,
 };
 

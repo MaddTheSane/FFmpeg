@@ -2,20 +2,20 @@
  * Copyright (c) 2000, 2001, 2002 Fabrice Bellard
  * Copyright (c) 2007 Mans Rullgard
  *
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
@@ -132,6 +132,27 @@ char *av_get_token(const char **buf, const char *term)
     *buf = p;
 
     return ret;
+}
+
+int av_strcasecmp(const char *a, const char *b)
+{
+    uint8_t c1, c2;
+    do {
+        c1 = av_tolower(*a++);
+        c2 = av_tolower(*b++);
+    } while (c1 && c1 == c2);
+    return c1 - c2;
+}
+
+int av_strncasecmp(const char *a, const char *b, size_t n)
+{
+    const char *end = a + n;
+    uint8_t c1, c2;
+    do {
+        c1 = av_tolower(*a++);
+        c2 = av_tolower(*b++);
+    } while (a < end && c1 && c1 == c2);
+    return c1 - c2;
 }
 
 #ifdef TEST

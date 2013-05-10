@@ -4,20 +4,20 @@
  * Copyright (c) 2001 Michael Niedermayer <michaelni@gmx.at>
  * Copyright (c) 2007 Mans Rullgard <mans@mansr.com>
  *
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
@@ -200,6 +200,7 @@ function idct_row_armv6
         ldr    r3, [r0, #8]          /* r3 = row[3,1] */
         ldr    r2, [r0]              /* r2 = row[2,0] */
         orrs   lr, lr, ip
+        itt    eq
         cmpeq  lr, r3
         cmpeq  lr, r2, lsr #16
         beq    1f
@@ -282,14 +283,14 @@ function idct_col_put_armv6
         pop    {r1, r2}
         idct_finish_shift_sat COL_SHIFT
 
-        strb   r4, [r1], r2
-        strb   r5, [r1], r2
-        strb   r6, [r1], r2
-        strb   r7, [r1], r2
-        strb   r11,[r1], r2
-        strb   r10,[r1], r2
-        strb   r9, [r1], r2
-        strb   r8, [r1], r2
+        strb_post r4, r1, r2
+        strb_post r5, r1, r2
+        strb_post r6, r1, r2
+        strb_post r7, r1, r2
+        strb_post r11,r1, r2
+        strb_post r10,r1, r2
+        strb_post r9, r1, r2
+        strb_post r8, r1, r2
 
         sub    r1, r1, r2, lsl #3
 
@@ -318,16 +319,16 @@ function idct_col_add_armv6
         add    ip, r3, ip, asr #COL_SHIFT
         usat   ip, #8, ip
         add    r4, r7, r4, asr #COL_SHIFT
-        strb   ip, [r1], r2
+        strb_post ip, r1, r2
         ldrb   ip, [r1, r2]
         usat   r4, #8, r4
         ldrb   r11,[r1, r2, lsl #2]
         add    r5, ip, r5, asr #COL_SHIFT
         usat   r5, #8, r5
-        strb   r4, [r1], r2
+        strb_post r4, r1, r2
         ldrb   r3, [r1, r2]
         ldrb   ip, [r1, r2, lsl #2]
-        strb   r5, [r1], r2
+        strb_post r5, r1, r2
         ldrb   r7, [r1, r2]
         ldrb   r4, [r1, r2, lsl #2]
         add    r6, r3, r6, asr #COL_SHIFT
@@ -340,11 +341,11 @@ function idct_col_add_armv6
         usat   r8, #8, r8
         add    lr, r4, lr, asr #COL_SHIFT
         usat   lr, #8, lr
-        strb   r6, [r1], r2
-        strb   r10,[r1], r2
-        strb   r9, [r1], r2
-        strb   r8, [r1], r2
-        strb   lr, [r1], r2
+        strb_post r6, r1, r2
+        strb_post r10,r1, r2
+        strb_post r9, r1, r2
+        strb_post r8, r1, r2
+        strb_post lr, r1, r2
 
         sub    r1, r1, r2, lsl #3
 

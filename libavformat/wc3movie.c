@@ -2,20 +2,20 @@
  * Wing Commander III Movie (.mve) File Demuxer
  * Copyright (c) 2003 The ffmpeg Project
  *
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
@@ -30,6 +30,7 @@
 #include "libavutil/intreadwrite.h"
 #include "libavutil/dict.h"
 #include "avformat.h"
+#include "internal.h"
 
 #define FORM_TAG MKTAG('F', 'O', 'R', 'M')
 #define MOVE_TAG MKTAG('M', 'O', 'V', 'E')
@@ -152,22 +153,21 @@ static int wc3_read_header(AVFormatContext *s,
                 (uint8_t)fourcc_tag, (uint8_t)(fourcc_tag >> 8), (uint8_t)(fourcc_tag >> 16), (uint8_t)(fourcc_tag >> 24),
                 (uint8_t)fourcc_tag, (uint8_t)(fourcc_tag >> 8), (uint8_t)(fourcc_tag >> 16), (uint8_t)(fourcc_tag >> 24));
             return AVERROR_INVALIDDATA;
-            break;
         }
 
         fourcc_tag = avio_rl32(pb);
         /* chunk sizes are 16-bit aligned */
         size = (avio_rb32(pb) + 1) & (~1);
-        if (url_feof(pb))
+        if (pb->eof_reached)
             return AVERROR(EIO);
 
     } while (fourcc_tag != BRCH_TAG);
 
     /* initialize the decoder streams */
-    st = av_new_stream(s, 0);
+    st = avformat_new_stream(s, NULL);
     if (!st)
         return AVERROR(ENOMEM);
-    av_set_pts_info(st, 33, 1, WC3_FRAME_FPS);
+    avpriv_set_pts_info(st, 33, 1, WC3_FRAME_FPS);
     wc3->video_stream_index = st->index;
     st->codec->codec_type = AVMEDIA_TYPE_VIDEO;
     st->codec->codec_id = CODEC_ID_XAN_WC3;
@@ -175,10 +175,10 @@ static int wc3_read_header(AVFormatContext *s,
     st->codec->width = wc3->width;
     st->codec->height = wc3->height;
 
-    st = av_new_stream(s, 0);
+    st = avformat_new_stream(s, NULL);
     if (!st)
         return AVERROR(ENOMEM);
-    av_set_pts_info(st, 33, 1, WC3_FRAME_FPS);
+    avpriv_set_pts_info(st, 33, 1, WC3_FRAME_FPS);
     wc3->audio_stream_index = st->index;
     st->codec->codec_type = AVMEDIA_TYPE_AUDIO;
     st->codec->codec_id = CODEC_ID_PCM_S16LE;
@@ -209,7 +209,7 @@ static int wc3_read_packet(AVFormatContext *s,
         fourcc_tag = avio_rl32(pb);
         /* chunk sizes are 16-bit aligned */
         size = (avio_rb32(pb) + 1) & (~1);
-        if (url_feof(pb))
+        if (pb->eof_reached)
             return AVERROR(EIO);
 
         switch (fourcc_tag) {
@@ -293,11 +293,11 @@ static int wc3_read_close(AVFormatContext *s)
 }
 
 AVInputFormat ff_wc3_demuxer = {
-    "wc3movie",
-    NULL_IF_CONFIG_SMALL("Wing Commander III movie format"),
-    sizeof(Wc3DemuxContext),
-    wc3_probe,
-    wc3_read_header,
-    wc3_read_packet,
-    wc3_read_close,
+    .name           = "wc3movie",
+    .long_name      = NULL_IF_CONFIG_SMALL("Wing Commander III movie format"),
+    .priv_data_size = sizeof(Wc3DemuxContext),
+    .read_probe     = wc3_probe,
+    .read_header    = wc3_read_header,
+    .read_packet    = wc3_read_packet,
+    .read_close     = wc3_read_close,
 };

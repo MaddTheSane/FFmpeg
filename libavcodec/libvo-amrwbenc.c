@@ -2,20 +2,20 @@
  * AMR Audio encoder stub
  * Copyright (c) 2003 the ffmpeg project
  *
- * This file is part of FFmpeg.
+ * This file is part of Libav.
  *
- * FFmpeg is free software; you can redistribute it and/or
+ * Libav is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * FFmpeg is distributed in the hope that it will be useful,
+ * Libav is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
@@ -34,7 +34,7 @@ typedef struct AMRWBContext {
 } AMRWBContext;
 
 static const AVOption options[] = {
-    { "dtx", "Allow DTX (generate comfort noise)", offsetof(AMRWBContext, allow_dtx), FF_OPT_TYPE_INT, 0, 0, 1, AV_OPT_FLAG_AUDIO_PARAM | AV_OPT_FLAG_ENCODING_PARAM },
+    { "dtx", "Allow DTX (generate comfort noise)", offsetof(AMRWBContext, allow_dtx), AV_OPT_TYPE_INT, { 0 }, 0, 1, AV_OPT_FLAG_AUDIO_PARAM | AV_OPT_FLAG_ENCODING_PARAM },
     { NULL }
 };
 
@@ -118,14 +118,13 @@ static int amr_wb_encode_frame(AVCodecContext *avctx,
 }
 
 AVCodec ff_libvo_amrwbenc_encoder = {
-    "libvo_amrwbenc",
-    AVMEDIA_TYPE_AUDIO,
-    CODEC_ID_AMR_WB,
-    sizeof(AMRWBContext),
-    amr_wb_encode_init,
-    amr_wb_encode_frame,
-    amr_wb_encode_close,
-    NULL,
+    .name           = "libvo_amrwbenc",
+    .type           = AVMEDIA_TYPE_AUDIO,
+    .id             = CODEC_ID_AMR_WB,
+    .priv_data_size = sizeof(AMRWBContext),
+    .init           = amr_wb_encode_init,
+    .encode         = amr_wb_encode_frame,
+    .close          = amr_wb_encode_close,
     .sample_fmts = (const enum AVSampleFormat[]){AV_SAMPLE_FMT_S16,AV_SAMPLE_FMT_NONE},
     .long_name = NULL_IF_CONFIG_SMALL("Android VisualOn Adaptive Multi-Rate "
                                       "(AMR) Wide-Band"),
