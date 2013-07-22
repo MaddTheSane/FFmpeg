@@ -713,7 +713,9 @@ static int avi_read_header(AVFormatContext *s)
             }
             break;
         case MKTAG('s', 't', 'r', 'd'):
-            if (stream_index >= (unsigned)s->nb_streams || s->streams[stream_index]->codec->extradata_size) {
+            if (stream_index >= (unsigned)s->nb_streams
+                || s->streams[stream_index]->codec->extradata_size
+                || s->streams[stream_index]->codec->codec_tag == MKTAG('H','2','6','4')) {
                 avio_skip(pb, size);
             } else {
                 uint64_t cur_pos = avio_tell(pb);
@@ -1020,9 +1022,9 @@ start_sync:
                || st->discard >= AVDISCARD_ALL){
                 if (!exit_early) {
                     ast->frame_offset += get_duration(ast, size);
+                    avio_skip(pb, size);
+                    goto start_sync;
                 }
-                avio_skip(pb, size);
-                goto start_sync;
             }
 
             if (d[2] == 'p' && d[3] == 'c' && size<=4*256+4) {
@@ -1395,15 +1397,16 @@ static int guess_ni_flag(AVFormatContext *s){
 
         for (i=0; i<s->nb_streams; i++) {
             AVStream *st = s->streams[i];
+            AVIStream *ast = st->priv_data;
             int n= st->nb_index_entries;
             while (idx[i]<n && st->index_entries[idx[i]].pos < pos)
                 idx[i]++;
             if (idx[i] < n) {
-                min_dts = FFMIN(min_dts, av_rescale_q(st->index_entries[idx[i]].timestamp, st->time_base, AV_TIME_BASE_Q));
+                min_dts = FFMIN(min_dts, av_rescale_q(st->index_entries[idx[i]].timestamp/FFMAX(ast->sample_size, 1), st->time_base, AV_TIME_BASE_Q));
                 min_pos = FFMIN(min_pos, st->index_entries[idx[i]].pos);
             }
             if (idx[i])
-                max_dts = FFMAX(max_dts, av_rescale_q(st->index_entries[idx[i]-1].timestamp, st->time_base, AV_TIME_BASE_Q));
+                max_dts = FFMAX(max_dts, av_rescale_q(st->index_entries[idx[i]-1].timestamp/FFMAX(ast->sample_size, 1), st->time_base, AV_TIME_BASE_Q));
         }
         if(max_dts - min_dts > 2*AV_TIME_BASE) {
             av_free(idx);

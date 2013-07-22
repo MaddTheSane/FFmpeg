@@ -190,8 +190,10 @@ static void format_line(void *ptr, int level, const char *fmt, va_list vl,
 
     vsnprintf(part[2], part_size, fmt, vl);
 
-    if(*part[0] || *part[1] || *part[2])
-        *print_prefix = strlen(part[2]) && part[2][strlen(part[2]) - 1] == '\n';
+    if(*part[0] || *part[1] || *part[2]) {
+        char lastc = strlen(part[2]) ? part[2][strlen(part[2]) - 1] : 0;
+        *print_prefix = lastc == '\n' || lastc == '\r';
+    }
 }
 
 void av_log_format_line(void *ptr, int level, const char *fmt, va_list vl,
@@ -282,7 +284,8 @@ void av_log_set_callback(void (*callback)(void*, int, const char*, va_list))
     av_log_callback = callback;
 }
 
-static void missing_feature_sample(int sample, void *avc, const char *msg, va_list argument_list)
+static void missing_feature_sample(int sample, void *avc, const char *msg,
+                                   va_list argument_list)
 {
     av_vlog(avc, AV_LOG_WARNING, msg, argument_list);
     av_log(avc, AV_LOG_WARNING, " is not implemented. Update your FFmpeg "
