@@ -76,3 +76,5 @@
 /tools/trasher
 /tools/seek_print
 /tools/zmqsend
+patched
+*.DS_Store
