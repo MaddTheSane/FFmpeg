@@ -52,6 +52,8 @@
 #include "swscale.h"
 #include "swscale_internal.h"
 
+static void handle_formats(SwsContext *c);
+
 unsigned swscale_version(void)
 {
     av_assert0(LIBSWSCALE_VERSION_MICRO >= 100);
@@ -91,6 +93,7 @@ static const FormatEntry format_entries[AV_PIX_FMT_NB] = {
     [AV_PIX_FMT_MONOBLACK]   = { 1, 1 },
     [AV_PIX_FMT_PAL8]        = { 1, 0 },
     [AV_PIX_FMT_YUVJ420P]    = { 1, 1 },
+    [AV_PIX_FMT_YUVJ411P]    = { 1, 1 },
     [AV_PIX_FMT_YUVJ422P]    = { 1, 1 },
     [AV_PIX_FMT_YUVJ444P]    = { 1, 1 },
     [AV_PIX_FMT_UYVY422]     = { 1, 1 },
@@ -138,8 +141,8 @@ static const FormatEntry format_entries[AV_PIX_FMT_NB] = {
     [AV_PIX_FMT_YUVA444P16LE]= { 1, 1 },
     [AV_PIX_FMT_RGB48BE]     = { 1, 1 },
     [AV_PIX_FMT_RGB48LE]     = { 1, 1 },
-    [AV_PIX_FMT_RGBA64BE]    = { 1, 0 },
-    [AV_PIX_FMT_RGBA64LE]    = { 1, 0 },
+    [AV_PIX_FMT_RGBA64BE]    = { 1, 1 },
+    [AV_PIX_FMT_RGBA64LE]    = { 1, 1 },
     [AV_PIX_FMT_RGB565BE]    = { 1, 1 },
     [AV_PIX_FMT_RGB565LE]    = { 1, 1 },
     [AV_PIX_FMT_RGB555BE]    = { 1, 1 },
@@ -249,12 +252,21 @@ static double getSplineCoeff(double a, double b, double c, double d,
                               dist - 1.0);
 }
 
+static av_cold int get_local_pos(SwsContext *s, int chr_subsample, int pos, int dir)
+{
+    if (pos < 0) {
+        pos = (128 << chr_subsample) - 128;
+    }
+    pos += 128; // relative to ideal left edge
+    return pos >> chr_subsample;
+}
+
 static av_cold int initFilter(int16_t **outFilter, int32_t **filterPos,
                               int *outFilterSize, int xInc, int srcW,
                               int dstW, int filterAlign, int one,
                               int flags, int cpu_flags,
                               SwsVector *srcFilter, SwsVector *dstFilter,
-                              double param[2])
+                              double param[2], int srcPos, int dstPos)
 {
     int i;
     int filterSize;
@@ -270,7 +282,7 @@ static av_cold int initFilter(int16_t **outFilter, int32_t **filterPos,
     // NOTE: the +3 is for the MMX(+1) / SSE(+3) scaler which reads over the end
     FF_ALLOC_OR_GOTO(NULL, *filterPos, (dstW + 3) * sizeof(**filterPos), fail);
 
-    if (FFABS(xInc - 0x10000) < 10) { // unscaled
+    if (FFABS(xInc - 0x10000) < 10 && srcPos == dstPos) { // unscaled
         int i;
         filterSize = 1;
         FF_ALLOCZ_OR_GOTO(NULL, filter,
@@ -287,7 +299,7 @@ static av_cold int initFilter(int16_t **outFilter, int32_t **filterPos,
         FF_ALLOC_OR_GOTO(NULL, filter,
                          dstW * sizeof(*filter) * filterSize, fail);
 
-        xDstInSrc = xInc / 2 - 0x8000;
+        xDstInSrc = ((srcPos*xInc)>>8) - ((dstPos*0x8000)>>7);
         for (i = 0; i < dstW; i++) {
             int xx = (xDstInSrc - ((filterSize - 1) << 15) + (1 << 15)) >> 16;
 
@@ -303,7 +315,7 @@ static av_cold int initFilter(int16_t **outFilter, int32_t **filterPos,
         FF_ALLOC_OR_GOTO(NULL, filter,
                          dstW * sizeof(*filter) * filterSize, fail);
 
-        xDstInSrc = xInc / 2 - 0x8000;
+        xDstInSrc = ((srcPos*xInc)>>8) - ((dstPos*0x8000)>>7);
         for (i = 0; i < dstW; i++) {
             int xx = (xDstInSrc - ((filterSize - 1) << 15) + (1 << 15)) >> 16;
             int j;
@@ -354,7 +366,7 @@ static av_cold int initFilter(int16_t **outFilter, int32_t **filterPos,
         FF_ALLOC_OR_GOTO(NULL, filter,
                          dstW * sizeof(*filter) * filterSize, fail);
 
-        xDstInSrc = xInc - 0x10000;
+        xDstInSrc = ((srcPos*xInc)>>7) - ((dstPos*0x10000)>>7);
         for (i = 0; i < dstW; i++) {
             int xx = (xDstInSrc - ((filterSize - 2) << 16)) / (1 << 17);
             int j;
@@ -534,7 +546,7 @@ static av_cold int initFilter(int16_t **outFilter, int32_t **filterPos,
             filterAlign = 1;
     }
 
-    if (INLINE_MMX(cpu_flags)) {
+    if (HAVE_MMX && cpu_flags & AV_CPU_FLAG_MMX) {
         // special case for unscaled vertical filtering
         if (minFilterSize == 1 && filterAlign == 2)
             filterAlign = 1;
@@ -936,10 +948,14 @@ int sws_setColorspaceDetails(struct SwsContext *c, const int inv_table[4],
                              int srcRange, const int table[4], int dstRange,
                              int brightness, int contrast, int saturation)
 {
-    const AVPixFmtDescriptor *desc_dst = av_pix_fmt_desc_get(c->dstFormat);
-    const AVPixFmtDescriptor *desc_src = av_pix_fmt_desc_get(c->srcFormat);
+    const AVPixFmtDescriptor *desc_dst;
+    const AVPixFmtDescriptor *desc_src;
     memcpy(c->srcColorspaceTable, inv_table, sizeof(int) * 4);
     memcpy(c->dstColorspaceTable, table, sizeof(int) * 4);
+
+    handle_formats(c);
+    desc_dst = av_pix_fmt_desc_get(c->dstFormat);
+    desc_src = av_pix_fmt_desc_get(c->srcFormat);
 
     if(!isYUV(c->dstFormat) && !isGray(c->dstFormat))
         dstRange = 0;
@@ -999,6 +1015,9 @@ static int handle_jpeg(enum AVPixelFormat *format)
     case AV_PIX_FMT_YUVJ420P:
         *format = AV_PIX_FMT_YUV420P;
         return 1;
+    case AV_PIX_FMT_YUVJ411P:
+        *format = AV_PIX_FMT_YUV411P;
+        return 1;
     case AV_PIX_FMT_YUVJ422P:
         *format = AV_PIX_FMT_YUV422P;
         return 1;
@@ -1007,6 +1026,8 @@ static int handle_jpeg(enum AVPixelFormat *format)
         return 1;
     case AV_PIX_FMT_YUVJ440P:
         *format = AV_PIX_FMT_YUV440P;
+        return 1;
+    case AV_PIX_FMT_GRAY8:
         return 1;
     default:
         return 0;
@@ -1031,6 +1052,14 @@ static int handle_xyz(enum AVPixelFormat *format)
     case AV_PIX_FMT_XYZ12LE : *format = AV_PIX_FMT_RGB48LE; return 1;
     default:                                                return 0;
     }
+}
+
+static void handle_formats(SwsContext *c)
+{
+    c->src0Alpha |= handle_0alpha(&c->srcFormat);
+    c->dst0Alpha |= handle_0alpha(&c->dstFormat);
+    c->srcXYZ    |= handle_xyz(&c->srcFormat);
+    c->dstXYZ    |= handle_xyz(&c->dstFormat);
 }
 
 SwsContext *sws_alloc_context(void)
@@ -1060,8 +1089,8 @@ av_cold int sws_init_context(SwsContext *c, SwsFilter *srcFilter,
     int flags, cpu_flags;
     enum AVPixelFormat srcFormat = c->srcFormat;
     enum AVPixelFormat dstFormat = c->dstFormat;
-    const AVPixFmtDescriptor *desc_src = av_pix_fmt_desc_get(srcFormat);
-    const AVPixFmtDescriptor *desc_dst = av_pix_fmt_desc_get(dstFormat);
+    const AVPixFmtDescriptor *desc_src;
+    const AVPixFmtDescriptor *desc_dst;
 
     cpu_flags = av_get_cpu_flags();
     flags     = c->flags;
@@ -1071,19 +1100,21 @@ av_cold int sws_init_context(SwsContext *c, SwsFilter *srcFilter,
 
     unscaled = (srcW == dstW && srcH == dstH);
 
-    handle_jpeg(&srcFormat);
-    handle_jpeg(&dstFormat);
+    c->srcRange |= handle_jpeg(&c->srcFormat);
+    c->dstRange |= handle_jpeg(&c->dstFormat);
+
+    if (!c->contrast && !c->saturation && !c->dstFormatBpp)
+        sws_setColorspaceDetails(c, ff_yuv2rgb_coeffs[SWS_CS_DEFAULT], c->srcRange,
+                                 ff_yuv2rgb_coeffs[SWS_CS_DEFAULT],
+                                 c->dstRange, 0, 1 << 16, 1 << 16);
+
     if(srcFormat!=c->srcFormat || dstFormat!=c->dstFormat)
         av_log(c, AV_LOG_WARNING, "deprecated pixel format used, make sure you did set range correctly\n");
-    handle_0alpha(&srcFormat);
-    handle_0alpha(&dstFormat);
-    handle_xyz(&srcFormat);
-    handle_xyz(&dstFormat);
-
-    if(srcFormat!=c->srcFormat || dstFormat!=c->dstFormat){
-        c->srcFormat= srcFormat;
-        c->dstFormat= dstFormat;
-    }
+    handle_formats(c);
+    srcFormat = c->srcFormat;
+    dstFormat = c->dstFormat;
+    desc_src = av_pix_fmt_desc_get(srcFormat);
+    desc_dst = av_pix_fmt_desc_get(dstFormat);
 
     if (!(unscaled && sws_isSupportedEndiannessConversion(srcFormat) &&
           av_pix_fmt_swap_endianness(srcFormat) == dstFormat)) {
@@ -1370,14 +1401,18 @@ av_cold int sws_init_context(SwsContext *c, SwsFilter *srcFilter,
                            srcW, dstW, filterAlign, 1 << 14,
                            (flags & SWS_BICUBLIN) ? (flags | SWS_BICUBIC) : flags,
                            cpu_flags, srcFilter->lumH, dstFilter->lumH,
-                           c->param) < 0)
+                           c->param,
+                           get_local_pos(c, 0, 0, 0),
+                           get_local_pos(c, 0, 0, 0)) < 0)
                 goto fail;
             if (initFilter(&c->hChrFilter, &c->hChrFilterPos,
                            &c->hChrFilterSize, c->chrXInc,
                            c->chrSrcW, c->chrDstW, filterAlign, 1 << 14,
                            (flags & SWS_BICUBLIN) ? (flags | SWS_BILINEAR) : flags,
                            cpu_flags, srcFilter->chrH, dstFilter->chrH,
-                           c->param) < 0)
+                           c->param,
+                           get_local_pos(c, c->chrSrcHSubSample, c->src_h_chr_pos, 0),
+                           get_local_pos(c, c->chrDstHSubSample, c->dst_h_chr_pos, 0)) < 0)
                 goto fail;
         }
     } // initialize horizontal stuff
@@ -1393,14 +1428,19 @@ av_cold int sws_init_context(SwsContext *c, SwsFilter *srcFilter,
                        c->lumYInc, srcH, dstH, filterAlign, (1 << 12),
                        (flags & SWS_BICUBLIN) ? (flags | SWS_BICUBIC) : flags,
                        cpu_flags, srcFilter->lumV, dstFilter->lumV,
-                       c->param) < 0)
+                       c->param,
+                       get_local_pos(c, 0, 0, 1),
+                       get_local_pos(c, 0, 0, 1)) < 0)
             goto fail;
         if (initFilter(&c->vChrFilter, &c->vChrFilterPos, &c->vChrFilterSize,
                        c->chrYInc, c->chrSrcH, c->chrDstH,
                        filterAlign, (1 << 12),
                        (flags & SWS_BICUBLIN) ? (flags | SWS_BILINEAR) : flags,
                        cpu_flags, srcFilter->chrV, dstFilter->chrV,
-                       c->param) < 0)
+                       c->param,
+                       get_local_pos(c, c->chrSrcVSubSample, c->src_v_chr_pos, 1),
+                       get_local_pos(c, c->chrDstVSubSample, c->dst_v_chr_pos, 1)) < 0)
+
             goto fail;
 
 #if HAVE_ALTIVEC
@@ -1570,12 +1610,6 @@ SwsContext *sws_getContext(int srcW, int srcH, enum AVPixelFormat srcFormat,
     c->srcH      = srcH;
     c->dstW      = dstW;
     c->dstH      = dstH;
-    c->srcRange  = handle_jpeg(&srcFormat);
-    c->dstRange  = handle_jpeg(&dstFormat);
-    c->src0Alpha = handle_0alpha(&srcFormat);
-    c->dst0Alpha = handle_0alpha(&dstFormat);
-    c->srcXYZ    = handle_xyz(&srcFormat);
-    c->dstXYZ    = handle_xyz(&dstFormat);
     c->srcFormat = srcFormat;
     c->dstFormat = dstFormat;
 
@@ -1583,9 +1617,6 @@ SwsContext *sws_getContext(int srcW, int srcH, enum AVPixelFormat srcFormat,
         c->param[0] = param[0];
         c->param[1] = param[1];
     }
-    sws_setColorspaceDetails(c, ff_yuv2rgb_coeffs[SWS_CS_DEFAULT], c->srcRange,
-                             ff_yuv2rgb_coeffs[SWS_CS_DEFAULT] /* FIXME*/,
-                             c->dstRange, 0, 1 << 16, 1 << 16);
 
     if (sws_init_context(c, srcFilter, dstFilter) < 0) {
         sws_freeContext(c);
@@ -2015,23 +2046,13 @@ struct SwsContext *sws_getCachedContext(struct SwsContext *context, int srcW,
             return NULL;
         context->srcW      = srcW;
         context->srcH      = srcH;
-        context->srcRange  = handle_jpeg(&srcFormat);
-        context->src0Alpha = handle_0alpha(&srcFormat);
-        context->srcXYZ    = handle_xyz(&srcFormat);
         context->srcFormat = srcFormat;
         context->dstW      = dstW;
         context->dstH      = dstH;
-        context->dstRange  = handle_jpeg(&dstFormat);
-        context->dst0Alpha = handle_0alpha(&dstFormat);
-        context->dstXYZ    = handle_xyz(&dstFormat);
         context->dstFormat = dstFormat;
         context->flags     = flags;
         context->param[0]  = param[0];
         context->param[1]  = param[1];
-        sws_setColorspaceDetails(context, ff_yuv2rgb_coeffs[SWS_CS_DEFAULT],
-                                 context->srcRange,
-                                 ff_yuv2rgb_coeffs[SWS_CS_DEFAULT] /* FIXME*/,
-                                 context->dstRange, 0, 1 << 16, 1 << 16);
         if (sws_init_context(context, srcFilter, dstFilter) < 0) {
             sws_freeContext(context);
             return NULL;

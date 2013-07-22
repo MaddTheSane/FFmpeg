@@ -224,6 +224,11 @@ static inline int decode_vui_parameters(H264Context *h, SPS *sps){
         get_ue_golomb(&h->gb);  /* chroma_sample_location_type_bottom_field */
     }
 
+    if (show_bits1(&h->gb) && get_bits_left(&h->gb) < 10) {
+        av_log(h->avctx, AV_LOG_WARNING, "Truncated VUI\n");
+        return 0;
+    }
+
     sps->timing_info_present_flag = get_bits1(&h->gb);
     if(sps->timing_info_present_flag){
         sps->num_units_in_tick = get_bits_long(&h->gb, 32);
@@ -599,10 +604,10 @@ int ff_h264_decode_picture_parameter_set(H264Context *h, int bit_length){
     qp_bd_offset = 6*(sps->bit_depth_luma-8);
     if (sps->bit_depth_luma > 14) {
         av_log(h->avctx, AV_LOG_ERROR, "Invalid luma bit depth=%d\n", sps->bit_depth_luma);
-        return AVERROR_INVALIDDATA;
+        goto fail;
     } else if (sps->bit_depth_luma == 11 || sps->bit_depth_luma == 13) {
         av_log(h->avctx, AV_LOG_ERROR, "Unimplemented luma bit depth=%d\n", sps->bit_depth_luma);
-        return AVERROR_PATCHWELCOME;
+        goto fail;
     }
 
     pps->cabac= get_bits1(&h->gb);

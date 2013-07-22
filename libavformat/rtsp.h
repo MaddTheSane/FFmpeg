@@ -399,6 +399,11 @@ typedef struct RTSPState {
      * Size of RTP packet reordering queue.
      */
     int reordering_queue_size;
+
+    /**
+     * User-Agent string
+     */
+    char *user_agent;
 } RTSPState;
 
 #define RTSP_FLAG_FILTER_SRC  0x1    /**< Filter incoming UDP packets -
@@ -430,6 +435,7 @@ typedef struct RTSPStream {
     //@{
     int sdp_port;             /**< port (from SDP content) */
     struct sockaddr_storage sdp_ip; /**< IP address (from SDP content) */
+    char source_addr[100];    /**< Source-specific multicast source IP address (from SDP content) */
     int sdp_ttl;              /**< IP Time-To-Live (from SDP content) */
     int sdp_payload_type;     /**< payload type */
     //@}

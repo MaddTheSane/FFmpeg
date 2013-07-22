@@ -25,6 +25,11 @@
 #include "libavutil/pixdesc.h"
 #include "avcodec.h"
 #include "internal.h"
+
+#if defined(_MSC_VER)
+#define X264_API_IMPORTS 1
+#endif
+
 #include <x264.h>
 #include <float.h>
 #include <math.h>
@@ -155,7 +160,7 @@ static int X264_frame(AVCodecContext *ctx, AVPacket *pkt, const AVFrame *frame,
     X264Context *x4 = ctx->priv_data;
     x264_nal_t *nal;
     int nnal, i, ret;
-    x264_picture_t pic_out;
+    x264_picture_t pic_out = {0};
 
     x264_picture_init( &x4->pic );
     x4->pic.img.i_csp   = x4->params.i_csp;
@@ -237,7 +242,7 @@ static av_cold int X264_close(AVCodecContext *avctx)
 #define OPT_STR(opt, param)                                                   \
     do {                                                                      \
         int ret;                                                              \
-        if (param && (ret = x264_param_parse(&x4->params, opt, param)) < 0) { \
+        if (param!=NULL && (ret = x264_param_parse(&x4->params, opt, param)) < 0) { \
             if(ret == X264_PARAM_BAD_NAME)                                    \
                 av_log(avctx, AV_LOG_ERROR,                                   \
                         "bad option '%s': '%s'\n", opt, param);               \
@@ -676,7 +681,7 @@ static const AVOption options[] = {
     { NULL },
 };
 
-static const AVClass class = {
+static const AVClass x264_class = {
     .class_name = "libx264",
     .item_name  = av_default_item_name,
     .option     = options,
@@ -730,7 +735,7 @@ AVCodec ff_libx264_encoder = {
     .close            = X264_close,
     .capabilities     = CODEC_CAP_DELAY | CODEC_CAP_AUTO_THREADS,
     .long_name        = NULL_IF_CONFIG_SMALL("libx264 H.264 / AVC / MPEG-4 AVC / MPEG-4 part 10"),
-    .priv_class       = &class,
+    .priv_class       = &x264_class,
     .defaults         = x264_defaults,
     .init_static_data = X264_init_static,
 };

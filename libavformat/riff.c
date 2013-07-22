@@ -325,21 +325,20 @@ const AVCodecTag ff_codec_bmp_tags[] = {
     { AV_CODEC_ID_DPX,          MKTAG('d', 'p', 'x', ' ') },
     { AV_CODEC_ID_KGV1,         MKTAG('K', 'G', 'V', '1') },
     { AV_CODEC_ID_LAGARITH,     MKTAG('L', 'A', 'G', 'S') },
-    { AV_CODEC_ID_G2M,          MKTAG('G', '2', 'M', '2') },
-    { AV_CODEC_ID_G2M,          MKTAG('G', '2', 'M', '3') },
-    { AV_CODEC_ID_G2M,          MKTAG('G', '2', 'M', '4') },
     { AV_CODEC_ID_AMV,          MKTAG('A', 'M', 'V', 'F') },
     { AV_CODEC_ID_UTVIDEO,      MKTAG('U', 'L', 'R', 'A') },
     { AV_CODEC_ID_UTVIDEO,      MKTAG('U', 'L', 'R', 'G') },
     { AV_CODEC_ID_UTVIDEO,      MKTAG('U', 'L', 'Y', '0') },
     { AV_CODEC_ID_UTVIDEO,      MKTAG('U', 'L', 'Y', '2') },
+    /* Ut Video version 13.0.1 BT.709 codecs */
+    { AV_CODEC_ID_UTVIDEO,      MKTAG('U', 'L', 'H', '0') },
+    { AV_CODEC_ID_UTVIDEO,      MKTAG('U', 'L', 'H', '2') },
     { AV_CODEC_ID_VBLE,         MKTAG('V', 'B', 'L', 'E') },
     { AV_CODEC_ID_ESCAPE130,    MKTAG('E', '1', '3', '0') },
     { AV_CODEC_ID_DXTORY,       MKTAG('x', 't', 'o', 'r') },
     { AV_CODEC_ID_ZEROCODEC,    MKTAG('Z', 'E', 'C', 'O') },
     { AV_CODEC_ID_Y41P,         MKTAG('Y', '4', '1', 'P') },
     { AV_CODEC_ID_FLIC,         MKTAG('A', 'F', 'L', 'C') },
-    { AV_CODEC_ID_EXR,          MKTAG('e', 'x', 'r', ' ') },
     { AV_CODEC_ID_MSS1,         MKTAG('M', 'S', 'S', '1') },
     { AV_CODEC_ID_MSA1,         MKTAG('M', 'S', 'A', '1') },
     { AV_CODEC_ID_TSCC2,        MKTAG('T', 'S', 'C', '2') },
@@ -349,6 +348,9 @@ const AVCodecTag ff_codec_bmp_tags[] = {
     { AV_CODEC_ID_SVQ3,         MKTAG('S', 'V', 'Q', '3') },
     { AV_CODEC_ID_012V,         MKTAG('0', '1', '2', 'v') },
     { AV_CODEC_ID_012V,         MKTAG('a', '1', '2', 'v') },
+    { AV_CODEC_ID_G2M,          MKTAG('G', '2', 'M', '2') },
+    { AV_CODEC_ID_G2M,          MKTAG('G', '2', 'M', '3') },
+    { AV_CODEC_ID_G2M,          MKTAG('G', '2', 'M', '4') },
     { AV_CODEC_ID_NONE,         0 }
 };
 
@@ -437,6 +439,7 @@ const AVMetadataConv ff_riff_info_conv[] = {
     { "INAM", "title"      },
     { "IPRD", "album"      },
     { "IPRT", "track"      },
+    { "ITRK", "track"      },
     { "ISFT", "encoder"    },
     { "ISMP", "timecode"   },
     { "ITCH", "encoded_by" },
@@ -457,6 +460,16 @@ enum AVCodecID ff_codec_guid_get_id(const AVCodecGuid *guids, ff_asf_guid guid)
         if (!ff_guidcmp(guids[i].guid, guid))
             return guids[i].id;
     return AV_CODEC_ID_NONE;
+}
+
+const struct AVCodecTag *avformat_get_riff_video_tags(void)
+{
+    return ff_codec_bmp_tags;
+}
+
+const struct AVCodecTag *avformat_get_riff_audio_tags(void)
+{
+    return ff_codec_wav_tags;
 }
 
 #if CONFIG_MUXERS
@@ -706,7 +719,7 @@ void ff_riff_write_info_tag(AVIOContext *pb, const char *tag, const char *str)
 static const char riff_tags[][5] = {
     "IARL", "IART", "ICMS", "ICMT", "ICOP", "ICRD", "ICRP", "IDIM", "IDPI",
     "IENG", "IGNR", "IKEY", "ILGT", "ILNG", "IMED", "INAM", "IPLT", "IPRD",
-    "IPRT", "ISBJ", "ISFT", "ISHP", "ISMP", "ISRC", "ISRF", "ITCH",
+    "IPRT", "ITRK", "ISBJ", "ISFT", "ISHP", "ISMP", "ISRC", "ISRF", "ITCH",
     { 0 }
 };
 
