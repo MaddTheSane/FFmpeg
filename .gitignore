@@ -78,3 +78,5 @@
 /tools/zmqsend
 patched
 *.DS_Store
+*.orig
+*.rej
