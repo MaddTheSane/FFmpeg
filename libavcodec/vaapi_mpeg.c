@@ -1,7 +1,8 @@
 /*
- * Header file for hardcoded AAC tables
+ * Video Acceleration API (video decoding)
+ * HW decode acceleration for MPEG-2, MPEG-4, H.264 and VC-1
  *
- * Copyright (c) 2010 Alex Converse <alex.converse@gmail.com>
+ * Copyright (C) 2013 Anton Khirnov
  *
  * This file is part of FFmpeg.
  *
@@ -20,23 +21,28 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
-#ifndef AVCODEC_AAC_TABLEGEN_H
-#define AVCODEC_AAC_TABLEGEN_H
+#include "avcodec.h"
+#include "vaapi_internal.h"
 
-#include "aac_tablegen_decl.h"
-
-#if CONFIG_HARDCODED_TABLES
-#include "libavcodec/aac_tables.h"
-#else
-#include "libavutil/mathematics.h"
-float ff_aac_pow2sf_tab[428];
-
-void ff_aac_tableinit(void)
+int ff_vaapi_mpeg_end_frame(AVCodecContext *avctx)
 {
-    int i;
-    for (i = 0; i < 428; i++)
-        ff_aac_pow2sf_tab[i] = pow(2, (i - POW_SF2_ZERO) / 4.0);
-}
-#endif /* CONFIG_HARDCODED_TABLES */
+    struct vaapi_context * const vactx = avctx->hwaccel_context;
+    MpegEncContext *s = avctx->priv_data;
+    int ret;
 
-#endif /* AVCODEC_AAC_TABLEGEN_H */
+    ret = ff_vaapi_commit_slices(vactx);
+    if (ret < 0)
+        goto finish;
+
+    ret = ff_vaapi_render_picture(vactx,
+                                  ff_vaapi_get_surface_id(s->current_picture_ptr));
+    if (ret < 0)
+        goto finish;
+
+    ff_mpeg_draw_horiz_band(s, 0, s->avctx->height);
+
+finish:
+    ff_vaapi_common_end_frame(avctx);
+    return ret;
+}
+

@@ -1,7 +1,5 @@
 /*
- * Header file for hardcoded AAC tables
- *
- * Copyright (c) 2010 Alex Converse <alex.converse@gmail.com>
+ * RTP network protocol
  *
  * This file is part of FFmpeg.
  *
@@ -20,23 +18,14 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
-#ifndef AVCODEC_AAC_TABLEGEN_H
-#define AVCODEC_AAC_TABLEGEN_H
+#ifndef AVFORMAT_RTPPROTO_H
+#define AVFORMAT_RTPPROTO_H
 
-#include "aac_tablegen_decl.h"
+#include "url.h"
 
-#if CONFIG_HARDCODED_TABLES
-#include "libavcodec/aac_tables.h"
-#else
-#include "libavutil/mathematics.h"
-float ff_aac_pow2sf_tab[428];
+int ff_rtp_set_remote_url(URLContext *h, const char *uri);
 
-void ff_aac_tableinit(void)
-{
-    int i;
-    for (i = 0; i < 428; i++)
-        ff_aac_pow2sf_tab[i] = pow(2, (i - POW_SF2_ZERO) / 4.0);
-}
-#endif /* CONFIG_HARDCODED_TABLES */
+int ff_rtp_get_local_rtp_port(URLContext *h);
+int ff_rtp_get_local_rtcp_port(URLContext *h);
 
-#endif /* AVCODEC_AAC_TABLEGEN_H */
+#endif /* AVFORMAT_RTPPROTO_H */
