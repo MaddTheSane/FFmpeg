@@ -34,6 +34,7 @@
 #include "libavutil/channel_layout.h"
 #include "libavutil/crc.h"
 #include "libavutil/frame.h"
+#include "libavutil/internal.h"
 #include "libavutil/mathematics.h"
 #include "libavutil/pixdesc.h"
 #include "libavutil/imgutils.h"
@@ -183,7 +184,7 @@ void avcodec_set_dimensions(AVCodecContext *s, int width, int height)
     s->height       = FF_CEIL_RSHIFT(height, s->lowres);
 }
 
-#if (ARCH_ARM && HAVE_NEON) || ARCH_PPC || HAVE_MMX
+#if HAVE_NEON || ARCH_PPC || HAVE_MMX
 #   define STRIDE_ALIGN 16
 #else
 #   define STRIDE_ALIGN 8
@@ -567,6 +568,7 @@ static int video_get_buffer(AVCodecContext *s, AVFrame *pic)
     for (i = 0; i < 4 && pool->pools[i]; i++) {
         const int h_shift = i == 0 ? 0 : h_chroma_shift;
         const int v_shift = i == 0 ? 0 : v_chroma_shift;
+        int is_planar = pool->pools[2] || (i==0 && s->pix_fmt == AV_PIX_FMT_GRAY8);
 
         pic->linesize[i] = pool->linesize[i];
 
@@ -575,7 +577,7 @@ static int video_get_buffer(AVCodecContext *s, AVFrame *pic)
             goto fail;
 
         // no edge if EDGE EMU or not planar YUV
-        if ((s->flags & CODEC_FLAG_EMU_EDGE) || !pool->pools[2])
+        if ((s->flags & CODEC_FLAG_EMU_EDGE) || !is_planar)
             pic->data[i] = pic->buf[i]->data;
         else {
             pic->data[i] = pic->buf[i]->data +
@@ -630,7 +632,9 @@ int avcodec_default_get_buffer2(AVCodecContext *avctx, AVFrame *frame, int flags
         return ret;
 
 #if FF_API_GET_BUFFER
+FF_DISABLE_DEPRECATION_WARNINGS
     frame->type = FF_BUFFER_TYPE_INTERNAL;
+FF_ENABLE_DEPRECATION_WARNINGS
 #endif
 
     switch (avctx->codec_type) {
@@ -701,6 +705,7 @@ int ff_init_buffer_info(AVCodecContext *avctx, AVFrame *frame)
 }
 
 #if FF_API_GET_BUFFER
+FF_DISABLE_DEPRECATION_WARNINGS
 int avcodec_default_get_buffer(AVCodecContext *avctx, AVFrame *frame)
 {
     return avcodec_default_get_buffer2(avctx, frame, 0);
@@ -724,6 +729,7 @@ static void compat_release_buffer(void *opaque, uint8_t *data)
     AVBufferRef *buf = opaque;
     av_buffer_unref(&buf);
 }
+FF_ENABLE_DEPRECATION_WARNINGS
 #endif
 
 static int get_buffer_internal(AVCodecContext *avctx, AVFrame *frame, int flags)
@@ -740,8 +746,9 @@ static int get_buffer_internal(AVCodecContext *avctx, AVFrame *frame, int flags)
         return ret;
 
 #if FF_API_GET_BUFFER
+FF_DISABLE_DEPRECATION_WARNINGS
     /*
-     * Wrap an old get_buffer()-allocated buffer in an bunch of AVBuffers.
+     * Wrap an old get_buffer()-allocated buffer in a bunch of AVBuffers.
      * We wrap each plane in its own AVBuffer. Each of those has a reference to
      * a dummy AVBuffer as its private data, unreffing it on free.
      * When all the planes are freed, the dummy buffer's free callback calls
@@ -852,6 +859,7 @@ fail:
         av_buffer_unref(&dummy_buf);
         return ret;
     }
+FF_ENABLE_DEPRECATION_WARNINGS
 #endif
 
     ret = avctx->get_buffer2(avctx, frame, flags);
@@ -1021,10 +1029,6 @@ void avcodec_free_frame(AVFrame **frame)
 
     av_freep(frame);
 }
-
-#define MAKE_ACCESSORS(str, name, type, field) \
-    type av_##name##_get_##field(const str *s) { return s->field; } \
-    void av_##name##_set_##field(str *s, type v) { s->field = v; }
 
 MAKE_ACCESSORS(AVCodecContext, codec, AVRational, pkt_timebase)
 MAKE_ACCESSORS(AVCodecContext, codec, const AVCodecDescriptor *, codec_descriptor)
@@ -1446,7 +1450,9 @@ int ff_alloc_packet2(AVCodecContext *avctx, AVPacket *avpkt, int size)
     if (avpkt->data) {
         AVBufferRef *buf = avpkt->buf;
 #if FF_API_DESTRUCT_PACKET
+FF_DISABLE_DEPRECATION_WARNINGS
         void *destruct = avpkt->destruct;
+FF_ENABLE_DEPRECATION_WARNINGS
 #endif
 
         if (avpkt->size < size) {
@@ -1456,7 +1462,9 @@ int ff_alloc_packet2(AVCodecContext *avctx, AVPacket *avpkt, int size)
 
         av_init_packet(avpkt);
 #if FF_API_DESTRUCT_PACKET
+FF_DISABLE_DEPRECATION_WARNINGS
         avpkt->destruct = destruct;
+FF_ENABLE_DEPRECATION_WARNINGS
 #endif
         avpkt->buf      = buf;
         avpkt->size     = size;
@@ -1705,7 +1713,7 @@ int attribute_align_arg avcodec_encode_audio(AVCodecContext *avctx,
         avctx->coded_frame->key_frame = !!(pkt.flags & AV_PKT_FLAG_KEY);
     }
     /* free any side data since we cannot return it */
-    ff_packet_free_side_data(&pkt);
+    av_packet_free_side_data(&pkt);
 
     if (frame && frame->extended_data != frame->data)
         av_freep(&frame->extended_data);
@@ -1994,7 +2002,7 @@ int attribute_align_arg avcodec_decode_video2(AVCodecContext *avctx, AVFrame *pi
 
         avctx->pkt = NULL;
         if (did_split) {
-            ff_packet_free_side_data(&tmp);
+            av_packet_free_side_data(&tmp);
             if(ret == tmp.size)
                 ret = avpkt->size;
         }
@@ -2170,7 +2178,7 @@ int attribute_align_arg avcodec_decode_audio4(AVCodecContext *avctx,
 
         avctx->pkt = NULL;
         if (did_split) {
-            ff_packet_free_side_data(&tmp);
+            av_packet_free_side_data(&tmp);
             if(ret == tmp.size)
                 ret = avpkt->size;
         }
@@ -2345,7 +2353,7 @@ int avcodec_decode_subtitle2(AVCodecContext *avctx, AVSubtitle *sub,
         }
 
         if (did_split) {
-            ff_packet_free_side_data(&tmp);
+            av_packet_free_side_data(&tmp);
             if(ret == tmp.size)
                 ret = avpkt->size;
         }
@@ -2998,6 +3006,7 @@ int ff_match_2uint16(const uint16_t(*tab)[2], int size, int a, int b)
 }
 
 #if FF_API_MISSING_SAMPLE
+FF_DISABLE_DEPRECATION_WARNINGS
 void av_log_missing_feature(void *avc, const char *feature, int want_sample)
 {
     av_log(avc, AV_LOG_WARNING, "%s is not implemented. Update your FFmpeg "
@@ -3022,6 +3031,7 @@ void av_log_ask_for_sample(void *avc, const char *msg, ...)
 
     va_end(argument_list);
 }
+FF_ENABLE_DEPRECATION_WARNINGS
 #endif /* FF_API_MISSING_SAMPLE */
 
 static AVHWAccel *first_hwaccel = NULL;

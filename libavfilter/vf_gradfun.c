@@ -152,6 +152,7 @@ static int query_formats(AVFilterContext *ctx)
         AV_PIX_FMT_GRAY8,              AV_PIX_FMT_YUV444P,
         AV_PIX_FMT_YUV422P,            AV_PIX_FMT_YUV411P,
         AV_PIX_FMT_YUV440P,
+        AV_PIX_FMT_GBRP,
         AV_PIX_FMT_NONE
     };
 
@@ -199,7 +200,7 @@ static int filter_frame(AVFilterLink *inlink, AVFrame *in)
         av_frame_copy_props(out, in);
     }
 
-    for (p = 0; p < 4 && in->data[p]; p++) {
+    for (p = 0; p < 4 && in->data[p] && in->linesize[p]; p++) {
         int w = inlink->w;
         int h = inlink->h;
         int r = s->radius;

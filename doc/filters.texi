@@ -1644,7 +1644,7 @@ The filter has no parameters. The input is not modified. Statistics about
 the volume will be printed in the log when the input stream end is reached.
 
 In particular it will show the mean volume (root mean square), maximum
-volume (on a per-sample basis), and the beginning of an histogram of the
+volume (on a per-sample basis), and the beginning of a histogram of the
 registered volume values (from the maximum value to a cumulated 1/1000 of
 the samples).
 
@@ -1958,7 +1958,7 @@ Set the carrier frequency. Default is 440 Hz.
 Enable a periodic beep every second with frequency @var{beep_factor} times
 the carrier frequency. Default is 0, meaning the beep is disabled.
 
-@item sample_rate, s
+@item sample_rate, r
 Specify the sample rate, default is 44100.
 
 @item duration, d
@@ -4159,6 +4159,14 @@ round to nearest
 @end table
 The default is @code{near}.
 
+@item start_time
+Assume the first PTS should be the given value, in seconds. This allows for
+padding/trimming at the start of stream. By default, no assumption is made
+about the first frame's expected PTS, so no padding or trimming is done.
+For example, this could be set to 0 to pad the beginning with duplicates of
+the first frame if a video stream starts after the audio stream or to trim any
+frames with a negative PTS.
+
 @end table
 
 Alternatively, the options can be specified as a flat string:
@@ -4707,12 +4715,16 @@ defaults to "1".
 @item H
 Specify the hue angle as a number of radians. It accepts an
 expression, and defaults to "0".
+
+@item b
+Specify the brightness in the [-10,10] range. It accepts an expression and
+defaults to "0".
 @end table
 
 @option{h} and @option{H} are mutually exclusive, and can't be
 specified at the same time.
 
-The @option{h}, @option{H} and @option{s} option values are
+The @option{b}, @option{h}, @option{H} and @option{s} option values are
 expressions containing the following constants:
 
 @table @option
@@ -4782,10 +4794,11 @@ hue="s=max(0\, min(1\, (START+DURATION-t)/DURATION))"
 
 This filter supports the following commands:
 @table @option
+@item b
 @item s
 @item h
 @item H
-Modify the hue and/or the saturation of the input video.
+Modify the hue and/or the saturation and/or brightness of the input video.
 The command accepts the same syntax of the corresponding option.
 
 If the specified expression is not valid, it is kept at its current
@@ -5539,7 +5552,7 @@ when evaluation is done @emph{per frame}, and will evaluate to NAN
 when @option{eval} is set to @samp{init}.
 
 Be aware that frames are taken from each input video in timestamp
-order, hence, if their initial timestamps differ, it is a a good idea
+order, hence, if their initial timestamps differ, it is a good idea
 to pass the two inputs through a @var{setpts=PTS-STARTPTS} filter to
 have them begin in the same zero timestamp, as it does the example for
 the @var{movie} filter.
@@ -6294,33 +6307,45 @@ Scale (resize) the input video, using the libswscale library.
 The scale filter forces the output display aspect ratio to be the same
 of the input, by changing the output sample aspect ratio.
 
+If the input image format is different from the format requested by
+the next filter, the scale filter will convert the input to the
+requested format.
+
+@subsection Options
 The filter accepts the following options:
 
 @table @option
 @item width, w
-Set the output video width expression. Default value is @code{iw}. See
-below for the list of accepted constants.
-
 @item height, h
-Set the output video height expression. Default value is @code{ih}.
-See below for the list of accepted constants.
+Set the output video dimension expression. Default value is the input
+dimension.
+
+If the value is 0, the input width is used for the output.
+
+If one of the values is -1, the scale filter will use a value that
+maintains the aspect ratio of the input image, calculated from the
+other specified dimension. If both of them are -1, the input size is
+used
+
+See below for the list of accepted constants for use in the dimension
+expression.
 
 @item interl
-Set the interlacing. It accepts the following values:
+Set the interlacing mode. It accepts the following values:
 
-@table @option
+@table @samp
 @item 1
-force interlaced aware scaling
+Force interlaced aware scaling.
 
 @item 0
-do not apply interlaced scaling
+Do not apply interlaced scaling.
 
 @item -1
-select interlaced aware scaling depending on whether the source frames
-are flagged as interlaced or not
+Select interlaced aware scaling depending on whether the source frames
+are flagged as interlaced or not.
 @end table
 
-Default value is @code{0}.
+Default value is @samp{0}.
 
 @item flags
 Set libswscale scaling flags. If not explictly specified the filter
@@ -6332,53 +6357,115 @@ form @var{width}x@var{height}.
 
 @item in_color_matrix
 @item out_color_matrix
-Set in/output YCbCr colorspace type.
+Set in/output YCbCr color space type.
+
 This allows the autodetected value to be overridden as well as allows forcing
 a specific value used for the output and encoder.
-If not specified, the colorspace type depends on the pixel format.
+
+If not specified, the color space type depends on the pixel format.
+
+Possible values:
+
 @table @samp
 @item auto
-Choose automatically
+Choose automatically.
 
 @item bt709
-ITU Rec BT709
+Format conforming to International Telecommunication Union (ITU)
+Recommendation BT.709.
 
 @item fcc
-United States Federal Communications Commission Title 47 Code of
-Federal Regulations (2003) 73.682 (a)
+Set color space conforming to the United States Federal Communications
+Commission (FCC) Code of Federal Regulations (CFR) Title 47 (2003) 73.682 (a).
 
 @item bt601
-ITU Rec BT601
-ITU-R Rec. BT.470-6 System B, G
-Society of Motion Picture and Television Engineers 170M (2004)
+Set color space conforming to:
+
+@itemize
+@item
+ITU Radiocommunication Sector (ITU-R) Recommendation BT.601
+
+@item
+ITU-R Rec. BT.470-6 (1998) Systems B, B1, and G
+
+@item
+Society of Motion Picture and Television Engineers (SMPTE) ST 170:2004
+
+@end itemize
 
 @item smpte240m
-Society of Motion Picture and Television Engineers 240M
+Set color space conforming to SMPTE ST 240:1999.
 @end table
 
 @item in_range
 @item out_range
 Set in/output YCbCr sample range.
+
 This allows the autodetected value to be overridden as well as allows forcing
-a specific value used for the output and encoder.
-If not specified, the range depends on the pixel format.
+a specific value used for the output and encoder. If not specified, the
+range depends on the pixel format. Possible values:
+
 @table @samp
 @item auto
-Choose automatically
+Choose automatically.
 
 @item jpeg/full/pc
-Full range (0-255 in case of 8bit luma)
+Set full range (0-255 in case of 8-bit luma).
 
 @item mpeg/tv
-"Mpeg" range (16-235 in case of 8bit luma)
+Set "MPEG" range (16-235 in case of 8-bit luma).
 @end table
+
+@item sws_dither
+Set the dithering algorithm
+
+@table @samp
+@item auto
+Choose automatically.
+
+@item none
+No dithering
+
+@item bayer
+bayer dither
+
+@item ed
+error diffusion dither
+@end table
+
+@item force_original_aspect_ratio
+Enable decreasing or increasing output video width or height if necessary to
+keep the original aspect ratio. Possible values:
+
+@table @samp
+@item disable
+Scale the video as specified and disable this feature.
+
+@item decrease
+The output video dimensions will automatically be decreased if needed.
+
+@item increase
+The output video dimensions will automatically be increased if needed.
 
 @end table
 
-The values of the @var{w} and @var{h} options are expressions
+One useful instance of this option is that when you know a specific device's
+maximum allowed resolution, you can use this to limit the output video to
+that, while retaining the aspect ratio. For example, device A allows
+1280x720 playback, and your video is 1920x800. Using this option (set it to
+decrease) and specifying 1280x720 to the command line makes the output
+1280x533.
+
+Please note that this is a different thing than specifying -1 for @option{w}
+or @option{h}, you still need to specify the output resolution for this option
+to work.
+
+@end table
+
+The values of the @option{w} and @option{h} options are expressions
 containing the following constants:
 
-@table @option
+@table @var
 @item in_w
 @item in_h
 the input width and height
@@ -6389,7 +6476,7 @@ same as @var{in_w} and @var{in_h}
 
 @item out_w
 @item out_h
-the output (cropped) width and height
+the output (scaled) width and height
 
 @item ow
 @item oh
@@ -6402,24 +6489,13 @@ same as @var{iw} / @var{ih}
 input sample aspect ratio
 
 @item dar
-input display aspect ratio, it is the same as (@var{iw} / @var{ih}) * @var{sar}
+input display aspect ratio. Calculated from @code{(iw / ih) * sar}.
 
 @item hsub
 @item vsub
 horizontal and vertical chroma subsample values. For example for the
 pixel format "yuv422p" @var{hsub} is 2 and @var{vsub} is 1.
 @end table
-
-If the input image format is different from the format requested by
-the next filter, the scale filter will convert the input to the
-requested format.
-
-If the value for @var{w} or @var{h} is 0, the respective input
-size is used for the output.
-
-If the value for @var{w} or @var{h} is -1, the scale filter will use, for the
-respective output size, a value that maintains the aspect ratio of the input
-image.
 
 @subsection Examples
 
@@ -7056,6 +7132,10 @@ Set the inner border thickness (i.e. the number of pixels between frames). For
 more advanced padding options (such as having different values for the edges),
 refer to the pad video filter.
 
+@item color
+Specify the color of the unused area, it can be the name of a color
+(case insensitive match) or a 0xRRGGBB[AA] sequence.
+The default value of @var{color} is "black".
 @end table
 
 @subsection Examples

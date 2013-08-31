@@ -33,7 +33,7 @@ static const char *sws_context_to_name(void *ptr)
 #define DEFAULT 0
 #define VE AV_OPT_FLAG_VIDEO_PARAM | AV_OPT_FLAG_ENCODING_PARAM
 
-static const AVOption options[] = {
+static const AVOption swscale_options[] = {
     { "sws_flags",       "scaler flags",                  OFFSET(flags),     AV_OPT_TYPE_FLAGS,  { .i64 = DEFAULT            }, 0,       UINT_MAX,       VE, "sws_flags" },
     { "fast_bilinear",   "fast bilinear",                 0,                 AV_OPT_TYPE_CONST,  { .i64  = SWS_FAST_BILINEAR  }, INT_MIN, INT_MAX,        VE, "sws_flags" },
     { "bilinear",        "bilinear",                      0,                 AV_OPT_TYPE_CONST,  { .i64  = SWS_BILINEAR       }, INT_MIN, INT_MAX,        VE, "sws_flags" },
@@ -69,13 +69,18 @@ static const AVOption options[] = {
     { "dst_v_chr_pos",   "destination vertical chroma position in luma grid/256"  , OFFSET(dst_v_chr_pos), AV_OPT_TYPE_INT, { .i64 = -1            }, -1,      512,             VE },
     { "dst_h_chr_pos",   "destination horizontal chroma position in luma grid/256", OFFSET(dst_h_chr_pos), AV_OPT_TYPE_INT, { .i64 = -1            }, -1,      512,             VE },
 
+    { "sws_dither",      "set dithering algorithm",       OFFSET(dither),    AV_OPT_TYPE_INT,    { .i64  = SWS_DITHER_AUTO   }, 0,       NB_SWS_DITHER,  VE, "sws_dither" },
+    { "auto",            "leave choice to sws",           0,                 AV_OPT_TYPE_CONST,  { .i64  = SWS_DITHER_AUTO   }, INT_MIN, INT_MAX,        VE, "sws_dither" },
+    { "bayer",           "bayer dither",                  0,                 AV_OPT_TYPE_CONST,  { .i64  = SWS_DITHER_BAYER  }, INT_MIN, INT_MAX,        VE, "sws_dither" },
+    { "ed",              "error diffusion",               0,                 AV_OPT_TYPE_CONST,  { .i64  = SWS_DITHER_ED     }, INT_MIN, INT_MAX,        VE, "sws_dither" },
+
     { NULL }
 };
 
 const AVClass sws_context_class = {
     .class_name = "SWScaler",
     .item_name  = sws_context_to_name,
-    .option     = options,
+    .option     = swscale_options,
     .category   = AV_CLASS_CATEGORY_SWSCALER,
     .version    = LIBAVUTIL_VERSION_INT,
 };

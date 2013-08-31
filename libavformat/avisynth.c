@@ -36,6 +36,7 @@
   #include <windows.h>
   #undef EXTERN_C
   #include "compat/avisynth/avisynth_c.h"
+  #include "compat/avisynth/avisynth_c_25.h"
   #define AVISYNTH_LIB "avisynth"
 #else
   #include <dlfcn.h>
@@ -62,19 +63,20 @@
 typedef struct {
     void *library;
 #define AVSC_DECLARE_FUNC(name) name##_func name
+    AVSC_DECLARE_FUNC(avs_bit_blt);
+    AVSC_DECLARE_FUNC(avs_clip_get_error);
     AVSC_DECLARE_FUNC(avs_create_script_environment);
     AVSC_DECLARE_FUNC(avs_delete_script_environment);
-    AVSC_DECLARE_FUNC(avs_get_error);
-    AVSC_DECLARE_FUNC(avs_clip_get_error);
-    AVSC_DECLARE_FUNC(avs_invoke);
-    AVSC_DECLARE_FUNC(avs_release_value);
-    AVSC_DECLARE_FUNC(avs_get_video_info);
-    AVSC_DECLARE_FUNC(avs_take_clip);
-    AVSC_DECLARE_FUNC(avs_release_clip);
-    AVSC_DECLARE_FUNC(avs_bit_blt);
     AVSC_DECLARE_FUNC(avs_get_audio);
+    AVSC_DECLARE_FUNC(avs_get_error);
     AVSC_DECLARE_FUNC(avs_get_frame);
+    AVSC_DECLARE_FUNC(avs_get_version);
+    AVSC_DECLARE_FUNC(avs_get_video_info);
+    AVSC_DECLARE_FUNC(avs_invoke);
+    AVSC_DECLARE_FUNC(avs_release_clip);
+    AVSC_DECLARE_FUNC(avs_release_value);
     AVSC_DECLARE_FUNC(avs_release_video_frame);
+    AVSC_DECLARE_FUNC(avs_take_clip);
 #undef AVSC_DECLARE_FUNC
 } AviSynthLibrary;
 
@@ -127,19 +129,20 @@ static av_cold int avisynth_load_library(void) {
     if(!continue_on_fail && !avs_library->name) \
         goto fail; \
 }
+    LOAD_AVS_FUNC(avs_bit_blt, 0);
+    LOAD_AVS_FUNC(avs_clip_get_error, 0);
     LOAD_AVS_FUNC(avs_create_script_environment, 0);
     LOAD_AVS_FUNC(avs_delete_script_environment, 0);
-    LOAD_AVS_FUNC(avs_get_error, 1); // New to AviSynth 2.6
-    LOAD_AVS_FUNC(avs_clip_get_error, 0);
-    LOAD_AVS_FUNC(avs_invoke, 0);
-    LOAD_AVS_FUNC(avs_release_value, 0);
-    LOAD_AVS_FUNC(avs_get_video_info, 0);
-    LOAD_AVS_FUNC(avs_take_clip, 0);
-    LOAD_AVS_FUNC(avs_release_clip, 0);
-    LOAD_AVS_FUNC(avs_bit_blt, 0);
     LOAD_AVS_FUNC(avs_get_audio, 0);
+    LOAD_AVS_FUNC(avs_get_error, 1); // New to AviSynth 2.6
     LOAD_AVS_FUNC(avs_get_frame, 0);
+    LOAD_AVS_FUNC(avs_get_version, 0);
+    LOAD_AVS_FUNC(avs_get_video_info, 0);
+    LOAD_AVS_FUNC(avs_invoke, 0);
+    LOAD_AVS_FUNC(avs_release_clip, 0);
+    LOAD_AVS_FUNC(avs_release_value, 0);
     LOAD_AVS_FUNC(avs_release_video_frame, 0);
+    LOAD_AVS_FUNC(avs_take_clip, 0);
 #undef LOAD_AVS_FUNC
 
     atexit(avisynth_atexit_handler);
@@ -469,9 +472,20 @@ static int avisynth_read_packet_video(AVFormatContext *s, AVPacket *pkt, int dis
     for (i = 0; i < avs->n_planes; i++) {
         plane = avs->planes[i];
         src_p = avs_get_read_ptr_p(frame, plane);
+        pitch = avs_get_pitch_p(frame, plane);
+
+#ifdef _WIN32
+        if (avs_library->avs_get_version(avs->clip) == 3) {
+            rowsize = avs_get_row_size_p_25(frame, plane);
+            planeheight = avs_get_height_p_25(frame, plane);
+        } else {
+            rowsize = avs_get_row_size_p(frame, plane);
+            planeheight = avs_get_height_p(frame, plane);
+        }
+#else
         rowsize = avs_get_row_size_p(frame, plane);
         planeheight = avs_get_height_p(frame, plane);
-        pitch = avs_get_pitch_p(frame, plane);
+#endif
 
         // Flip RGB video.
         if (avs_is_rgb24(avs->vi) || avs_is_rgb(avs->vi)) {

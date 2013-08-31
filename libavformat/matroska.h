@@ -91,6 +91,7 @@
 #define MATROSKA_ID_CODECINFOURL 0x3B4040
 #define MATROSKA_ID_CODECDOWNLOADURL 0x26B240
 #define MATROSKA_ID_CODECDECODEALL 0xAA
+#define MATROSKA_ID_SEEKPREROLL 0x56BB
 #define MATROSKA_ID_TRACKNAME  0x536E
 #define MATROSKA_ID_TRACKLANGUAGE 0x22B59C
 #define MATROSKA_ID_TRACKFLAGENABLED 0xB9
@@ -264,7 +265,7 @@ typedef enum {
  */
 
 typedef struct CodecTags{
-    char str[20];
+    char str[22];
     enum AVCodecID id;
 }CodecTags;
 

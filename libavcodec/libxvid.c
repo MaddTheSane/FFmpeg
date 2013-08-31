@@ -364,7 +364,7 @@ static av_cold int xvid_encode_init(AVCodecContext *avctx)  {
     xvid_plugin_ssim_t        ssim            = { 0 };
     xvid_gbl_init_t           xvid_gbl_init   = { 0 };
     xvid_enc_create_t         xvid_enc_create = { 0 };
-    xvid_enc_plugin_t         plugins[7];
+    xvid_enc_plugin_t         plugins[4];
 
     x->twopassfd = -1;
 
@@ -531,14 +531,17 @@ static av_cold int xvid_encode_init(AVCodecContext *avctx)  {
         xvid_enc_create.num_plugins++;
     }
 
+    if ( avctx->lumi_masking != 0.0)
+        x->lumi_aq = 1;
+
     /* Luminance Masking */
-    if( avctx->lumi_masking != 0.0 || x->lumi_aq ) {
+    if( x->lumi_aq ) {
         masking_l.method = 0;
         plugins[xvid_enc_create.num_plugins].func = xvid_plugin_lumimasking;
 
         /* The old behavior is that when avctx->lumi_masking is specified,
          * plugins[...].param = NULL. Trying to keep the old behavior here. */
-        plugins[xvid_enc_create.num_plugins].param = x->lumi_aq ? &masking_l : NULL ;
+        plugins[xvid_enc_create.num_plugins].param = avctx->lumi_masking ? NULL : &masking_l ;
         xvid_enc_create.num_plugins++;
     }
 
@@ -637,6 +640,8 @@ static av_cold int xvid_encode_init(AVCodecContext *avctx)  {
     xvid_enc_create.bquant_offset = 100 * avctx->b_quant_offset;
     xvid_enc_create.bquant_ratio = 100 * avctx->b_quant_factor;
     if( avctx->max_b_frames > 0  && !x->quicktime_format ) xvid_enc_create.global |= XVID_GLOBAL_PACKED;
+
+    av_assert0(xvid_enc_create.num_plugins + (!!x->ssim) + (!!x->variance_aq) + (!!x->lumi_aq) <= FF_ARRAY_ELEMS(plugins));
 
     /* Create encoder context */
     xerr = xvid_encore(NULL, XVID_ENC_CREATE, &xvid_enc_create, NULL);

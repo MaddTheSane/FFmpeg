@@ -1,7 +1,7 @@
 /*
  * FFV1 decoder
  *
- * Copyright (c) 2003-2012 Michael Niedermayer <michaelni@gmx.at>
+ * Copyright (c) 2003-2013 Michael Niedermayer <michaelni@gmx.at>
  *
  * This file is part of FFmpeg.
  *
@@ -382,7 +382,7 @@ static int decode_slice(AVCodecContext *c, void *arg)
     y      = fs->slice_y;
 
     if (!fs->ac) {
-        if (f->version == 3 && f->minor_version > 1 || f->version > 3)
+        if (f->version == 3 && f->micro_version > 1 || f->version > 3)
             get_rac(&fs->c, (uint8_t[]) { 129 });
         fs->ac_byte_count = f->version > 2 || (!x && !y) ? fs->c.bytestream - fs->c.bytestream_start - 1 : 0;
         init_get_bits(&fs->gb,
@@ -483,9 +483,13 @@ static int read_extra_header(FFV1Context *f)
     ff_build_rac_states(c, 0.05 * (1LL << 32), 256 - 8);
 
     f->version = get_symbol(c, state, 0);
+    if (f->version < 2) {
+        av_log(f->avctx, AV_LOG_ERROR, "Invalid version in global header\n");
+        return AVERROR_INVALIDDATA;
+    }
     if (f->version > 2) {
         c->bytestream_end -= 4;
-        f->minor_version = get_symbol(c, state, 0);
+        f->micro_version = get_symbol(c, state, 0);
     }
     f->ac = f->avctx->coder_type = get_symbol(c, state, 0);
     if (f->ac > 1) {
@@ -499,7 +503,7 @@ static int read_extra_header(FFV1Context *f)
     f->chroma_h_shift             = get_symbol(c, state, 0);
     f->chroma_v_shift             = get_symbol(c, state, 0);
     f->transparency               = get_rac(c, state);
-    f->plane_count                = 2 + f->transparency;
+    f->plane_count                = 1 + (f->chroma_planes || f->version<4) + f->transparency;
     f->num_h_slices               = 1 + get_symbol(c, state, 0);
     f->num_v_slices               = 1 + get_symbol(c, state, 0);
 
@@ -536,7 +540,7 @@ static int read_extra_header(FFV1Context *f)
 
     if (f->version > 2) {
         f->ec = get_symbol(c, state, 0);
-        if (f->minor_version > 2)
+        if (f->micro_version > 2)
             f->intra = get_symbol(c, state, 0);
     }
 
@@ -550,6 +554,20 @@ static int read_extra_header(FFV1Context *f)
         }
     }
 
+    if (f->avctx->debug & FF_DEBUG_PICT_INFO)
+        av_log(f->avctx, AV_LOG_DEBUG,
+               "global: ver:%d.%d, coder:%d, colorspace: %d bpr:%d chroma:%d(%d:%d), alpha:%d slices:%dx%d qtabs:%d ec:%d intra:%d\n",
+               f->version, f->micro_version,
+               f->ac,
+               f->colorspace,
+               f->avctx->bits_per_raw_sample,
+               f->chroma_planes, f->chroma_h_shift, f->chroma_v_shift,
+               f->transparency,
+               f->num_h_slices, f->num_v_slices,
+               f->quant_table_count,
+               f->ec,
+               f->intra
+              );
     return 0;
 }
 
@@ -562,6 +580,7 @@ static int read_header(FFV1Context *f)
     memset(state, 128, sizeof(state));
 
     if (f->version < 2) {
+        int chroma_planes, chroma_h_shift, chroma_v_shift, transparency, colorspace, bits_per_raw_sample;
         unsigned v= get_symbol(c, state, 0);
         if (v >= 2) {
             av_log(f->avctx, AV_LOG_ERROR, "invalid version %d in ver01 header\n", v);
@@ -574,15 +593,32 @@ static int read_header(FFV1Context *f)
                 f->state_transition[i] = get_symbol(c, state, 1) + c->one_state[i];
         }
 
-        f->colorspace = get_symbol(c, state, 0); //YUV cs type
+        colorspace     = get_symbol(c, state, 0); //YUV cs type
+        bits_per_raw_sample = f->version > 0 ? get_symbol(c, state, 0) : f->avctx->bits_per_raw_sample;
+        chroma_planes  = get_rac(c, state);
+        chroma_h_shift = get_symbol(c, state, 0);
+        chroma_v_shift = get_symbol(c, state, 0);
+        transparency   = get_rac(c, state);
 
-        if (f->version > 0)
-            f->avctx->bits_per_raw_sample = get_symbol(c, state, 0);
+        if (f->plane_count) {
+            if (   colorspace    != f->colorspace
+                || bits_per_raw_sample != f->avctx->bits_per_raw_sample
+                || chroma_planes != f->chroma_planes
+                || chroma_h_shift!= f->chroma_h_shift
+                || chroma_v_shift!= f->chroma_v_shift
+                || transparency  != f->transparency) {
+                av_log(f->avctx, AV_LOG_ERROR, "Invalid change of global parameters\n");
+                return AVERROR_INVALIDDATA;
+            }
+        }
 
-        f->chroma_planes  = get_rac(c, state);
-        f->chroma_h_shift = get_symbol(c, state, 0);
-        f->chroma_v_shift = get_symbol(c, state, 0);
-        f->transparency   = get_rac(c, state);
+        f->colorspace     = colorspace;
+        f->avctx->bits_per_raw_sample = bits_per_raw_sample;
+        f->chroma_planes  = chroma_planes;
+        f->chroma_h_shift = chroma_h_shift;
+        f->chroma_v_shift = chroma_v_shift;
+        f->transparency   = transparency;
+
         f->plane_count    = 2 + f->transparency;
     }
 
@@ -783,6 +819,13 @@ static int decode_frame(AVCodecContext *avctx, void *data, int *got_frame, AVPac
     FFSWAP(ThreadFrame, f->picture, f->last_picture);
 
     f->cur = p = f->picture.f;
+
+    if (f->version < 3 && avctx->field_order > AV_FIELD_PROGRESSIVE) {
+        /* we have interlaced material flagged in container */
+        p->interlaced_frame = 1;
+        if (avctx->field_order == AV_FIELD_TT || avctx->field_order == AV_FIELD_TB)
+            p->top_field_first = 1;
+    }
 
     f->avctx = avctx;
     ff_init_range_decoder(c, buf, buf_size);

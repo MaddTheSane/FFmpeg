@@ -94,7 +94,7 @@ static int config_input(AVFilterLink *inlink)
         s->start_time = s->start_time_dbl * 1e6;
     if (s->end_time_dbl != DBL_MAX)
         s->end_time = s->end_time_dbl * 1e6;
-    if (s->duration_dbl != DBL_MAX)
+    if (s->duration_dbl != 0)
         s->duration = s->duration_dbl * 1e6;
 
     if (s->start_time != INT64_MAX) {
@@ -322,7 +322,7 @@ static int atrim_filter_frame(AVFilterLink *inlink, AVFrame *frame)
     s->nb_samples += frame->nb_samples;
     start_sample   = FFMAX(0, start_sample);
     end_sample     = FFMIN(frame->nb_samples, end_sample);
-    av_assert0(start_sample < end_sample);
+    av_assert0(start_sample < end_sample || (start_sample == end_sample && !frame->nb_samples));
 
     if (start_sample) {
         AVFrame *out = ff_get_audio_buffer(ctx->outputs[0], end_sample - start_sample);

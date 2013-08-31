@@ -25,6 +25,7 @@
 #include "libavutil/bswap.h"
 #include "libavutil/common.h"
 #include "libavutil/dict.h"
+#include "libavutil/internal.h"
 #include "libavutil/mathematics.h"
 #include "libavutil/opt.h"
 #include "avformat.h"
@@ -1300,7 +1301,9 @@ static int asf_parse_packet(AVFormatContext *s, AVIOContext *pb, AVPacket *pkt)
             asf_st->frag_offset         = 0;
             *pkt                        = asf_st->pkt;
 #if FF_API_DESTRUCT_PACKET
+FF_DISABLE_DEPRECATION_WARNINGS
             asf_st->pkt.destruct        = NULL;
+FF_ENABLE_DEPRECATION_WARNINGS
 #endif
             asf_st->pkt.buf             = 0;
             asf_st->pkt.size            = 0;
@@ -1411,6 +1414,7 @@ static int64_t asf_read_pts(AVFormatContext *s, int stream_index,
     if (avio_seek(s->pb, pos, SEEK_SET) < 0)
         return AV_NOPTS_VALUE;
 
+    ff_read_frame_flush(s);
     asf_reset_header(s);
     for (;;) {
         if (av_read_frame(s, pkt) < 0) {

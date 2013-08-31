@@ -71,6 +71,7 @@ typedef struct {
     const AVClass *class;
     struct SwsContext *sws;     ///< software scaler context
     struct SwsContext *isws[2]; ///< software scaler context for interlaced material
+    AVDictionary *opts;
 
     /**
      * New dimensions. Special values are:
@@ -101,9 +102,11 @@ typedef struct {
     int out_v_chr_pos;
     int in_h_chr_pos;
     int in_v_chr_pos;
+
+    int force_original_aspect_ratio;
 } ScaleContext;
 
-static av_cold int init(AVFilterContext *ctx)
+static av_cold int init_dict(AVFilterContext *ctx, AVDictionary **opts)
 {
     ScaleContext *scale = ctx->priv;
     int ret;
@@ -147,6 +150,8 @@ static av_cold int init(AVFilterContext *ctx)
         if (ret < 0)
             return ret;
     }
+    scale->opts = *opts;
+    *opts = NULL;
 
     return 0;
 }
@@ -158,6 +163,7 @@ static av_cold void uninit(AVFilterContext *ctx)
     sws_freeContext(scale->isws[0]);
     sws_freeContext(scale->isws[1]);
     scale->sws = NULL;
+    av_dict_free(&scale->opts);
 }
 
 static int query_formats(AVFilterContext *ctx)
@@ -274,6 +280,19 @@ static int config_props(AVFilterLink *outlink)
     if (h == -1)
         h = av_rescale(w, inlink->h, inlink->w);
 
+    if (scale->force_original_aspect_ratio) {
+        int tmp_w = av_rescale(h, inlink->w, inlink->h);
+        int tmp_h = av_rescale(w, inlink->h, inlink->w);
+
+        if (scale->force_original_aspect_ratio == 1) {
+             w = FFMIN(tmp_w, w);
+             h = FFMIN(tmp_h, h);
+        } else {
+             w = FFMAX(tmp_w, w);
+             h = FFMAX(tmp_h, h);
+        }
+    }
+
     if (w > INT_MAX || h > INT_MAX ||
         (h * inlink->w) > INT_MAX  ||
         (w * inlink->h) > INT_MAX)
@@ -309,6 +328,15 @@ static int config_props(AVFilterLink *outlink)
             *s = sws_alloc_context();
             if (!*s)
                 return AVERROR(ENOMEM);
+
+            if (scale->opts) {
+                AVDictionaryEntry *e = NULL;
+
+                while ((e = av_dict_get(scale->opts, "", e, AV_DICT_IGNORE_SUFFIX))) {
+                    if ((ret = av_opt_set(*s, e->key, e->value, 0)) < 0)
+                        return ret;
+                }
+            }
 
             av_opt_set_int(*s, "srcw", inlink ->w, 0);
             av_opt_set_int(*s, "srch", inlink ->h >> !!i, 0);
@@ -475,6 +503,11 @@ static int filter_frame(AVFilterLink *link, AVFrame *in)
     return ff_filter_frame(outlink, out);
 }
 
+static const AVClass *child_class_next(const AVClass *prev)
+{
+    return prev ? NULL : sws_get_class();
+}
+
 #define OFFSET(x) offsetof(ScaleContext, x)
 #define FLAGS AV_OPT_FLAG_VIDEO_PARAM|AV_OPT_FLAG_FILTERING_PARAM
 
@@ -501,10 +534,20 @@ static const AVOption scale_options[] = {
     { "in_h_chr_pos",   "input horizontal chroma position in luma grid/256", OFFSET(in_h_chr_pos), AV_OPT_TYPE_INT, { .i64 = -1}, -1, 512, FLAGS },
     { "out_v_chr_pos",   "output vertical chroma position in luma grid/256"  , OFFSET(out_v_chr_pos), AV_OPT_TYPE_INT, { .i64 = -1}, -1, 512, FLAGS },
     { "out_h_chr_pos",   "output horizontal chroma position in luma grid/256", OFFSET(out_h_chr_pos), AV_OPT_TYPE_INT, { .i64 = -1}, -1, 512, FLAGS },
+    { "force_original_aspect_ratio", "decrease or increase w/h if necessary to keep the original AR", OFFSET(force_original_aspect_ratio), AV_OPT_TYPE_INT, { .i64 = 0}, 0, 2, FLAGS, "force_oar" },
+    { "disable",  NULL, 0, AV_OPT_TYPE_CONST, {.i64 = 0 }, 0, 0, FLAGS, "force_oar" },
+    { "decrease", NULL, 0, AV_OPT_TYPE_CONST, {.i64 = 1 }, 0, 0, FLAGS, "force_oar" },
+    { "increase", NULL, 0, AV_OPT_TYPE_CONST, {.i64 = 2 }, 0, 0, FLAGS, "force_oar" },
     { NULL },
 };
 
-AVFILTER_DEFINE_CLASS(scale);
+static const AVClass scale_class = {
+    .class_name       = "scale",
+    .item_name        = av_default_item_name,
+    .option           = scale_options,
+    .version          = LIBAVUTIL_VERSION_INT,
+    .child_class_next = child_class_next,
+};
 
 static const AVFilterPad avfilter_vf_scale_inputs[] = {
     {
@@ -528,7 +571,7 @@ AVFilter avfilter_vf_scale = {
     .name      = "scale",
     .description = NULL_IF_CONFIG_SMALL("Scale the input video to width:height size and/or convert the image format."),
 
-    .init      = init,
+    .init_dict = init_dict,
     .uninit    = uninit,
 
     .query_formats = query_formats,

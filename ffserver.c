@@ -3904,7 +3904,7 @@ static void add_codec(FFStream *stream, AVCodecContext *av)
         av->rc_buffer_aggressivity = 1.0;
 
         if (!av->rc_eq)
-            av->rc_eq = "tex^qComp";
+            av->rc_eq = av_strdup("tex^qComp");
         if (!av->i_quant_factor)
             av->i_quant_factor = -0.8;
         if (!av->b_quant_factor)
@@ -4673,6 +4673,8 @@ int main(int argc, char **argv)
 {
     struct sigaction sigact = { { 0 } };
 
+    config_filename = av_strdup("/etc/ffserver.conf");
+
     parse_loglevel(argc, argv, options);
     av_register_all();
     avformat_network_init();
@@ -4682,9 +4684,6 @@ int main(int argc, char **argv)
     my_program_name = argv[0];
 
     parse_options(NULL, argc, argv, options, NULL);
-
-    if (!config_filename)
-        config_filename = av_strdup("/etc/ffserver.conf");
 
     unsetenv("http_proxy");             /* Kill the http_proxy */
 
