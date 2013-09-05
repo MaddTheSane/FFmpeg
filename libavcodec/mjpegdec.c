@@ -259,7 +259,8 @@ int ff_mjpeg_decode_sof(MJpegDecodeContext *s)
         return -1;
     if (s->interlaced && (s->bottom_field == !s->interlace_polarity)) {
         if (nb_components != s->nb_components) {
-            av_log(s->avctx, AV_LOG_ERROR, "nb_components changing in interlaced picture\n");
+            av_log(s->avctx, AV_LOG_ERROR,
+                   "nb_components changing in interlaced picture\n");
             return AVERROR_INVALIDDATA;
         }
     }
@@ -789,9 +790,15 @@ static int ljpeg_decode_rgb_scan(MJpegDecodeContext *s, int nb_components, int p
     uint16_t (*buffer)[4];
     int left[4], top[4], topleft[4];
     const int linesize = s->linesize[0];
-    const int mask     = (1 << s->bits) - 1;
+    const int mask     = ((1 << s->bits) - 1) << point_transform;
     int resync_mb_y = 0;
     int resync_mb_x = 0;
+
+    if (s->nb_components != 3 && s->nb_components != 4)
+        return AVERROR_INVALIDDATA;
+    if (s->v_max != 1 || s->h_max != 1 || !s->lossless)
+        return AVERROR_INVALIDDATA;
+
 
     s->restart_count = s->restart_interval;
 
@@ -879,12 +886,13 @@ static int ljpeg_decode_rgb_scan(MJpegDecodeContext *s, int nb_components, int p
 static int ljpeg_decode_yuv_scan(MJpegDecodeContext *s, int predictor,
                                  int point_transform, int nb_components)
 {
-    int i, mb_x, mb_y;
+    int i, mb_x, mb_y, mask;
     int bits= (s->bits+7)&~7;
     int resync_mb_y = 0;
     int resync_mb_x = 0;
 
     point_transform += bits - s->bits;
+    mask = ((1 << s->bits) - 1) << point_transform;
 
     av_assert0(nb_components>=1 && nb_components<=4);
 
@@ -937,7 +945,7 @@ static int ljpeg_decode_yuv_scan(MJpegDecodeContext *s, int predictor,
 
                         if (s->interlaced && s->bottom_field)
                             ptr += linesize >> 1;
-                        pred &= (-1)<<(8-s->bits);
+                        pred &= mask;
                         *ptr= pred + (dc << point_transform);
                         }else{
                             ptr16 = (uint16_t*)(s->picture.data[c] + 2*(linesize * (v * mb_y + y)) + 2*(h * mb_x + x)); //FIXME optimize this crap
@@ -957,7 +965,7 @@ static int ljpeg_decode_yuv_scan(MJpegDecodeContext *s, int predictor,
 
                             if (s->interlaced && s->bottom_field)
                                 ptr16 += linesize >> 1;
-                            pred &= (-1)<<(16-s->bits);
+                            pred &= mask;
                             *ptr16= pred + (dc << point_transform);
                         }
                         if (++x == h) {
@@ -993,13 +1001,13 @@ static int ljpeg_decode_yuv_scan(MJpegDecodeContext *s, int predictor,
                               (h * mb_x + x); //FIXME optimize this crap
                             PREDICT(pred, ptr[-linesize-1], ptr[-linesize], ptr[-1], predictor);
 
-                            pred &= (-1)<<(8-s->bits);
+                            pred &= mask;
                             *ptr = pred + (dc << point_transform);
                         }else{
                             ptr16 = (uint16_t*)(s->picture.data[c] + 2*(linesize * (v * mb_y + y)) + 2*(h * mb_x + x)); //FIXME optimize this crap
                             PREDICT(pred, ptr16[-linesize-1], ptr16[-linesize], ptr16[-1], predictor);
 
-                            pred &= (-1)<<(16-s->bits);
+                            pred &= mask;
                             *ptr16= pred + (dc << point_transform);
                         }
 
@@ -1466,7 +1474,7 @@ static int mjpeg_decode_app(MJpegDecodeContext *s)
         skip_bits(&s->gb, 16); /* unknown always 0? */
         skip_bits(&s->gb, 16); /* unknown always 0? */
         skip_bits(&s->gb, 16); /* unknown always 0? */
-        switch (get_bits(&s->gb, 8)) {
+        switch (i=get_bits(&s->gb, 8)) {
         case 1:
             s->rgb         = 1;
             s->pegasus_rct = 0;
@@ -1476,7 +1484,7 @@ static int mjpeg_decode_app(MJpegDecodeContext *s)
             s->pegasus_rct = 1;
             break;
         default:
-            av_log(s->avctx, AV_LOG_ERROR, "unknown colorspace\n");
+            av_log(s->avctx, AV_LOG_ERROR, "unknown colorspace %d\n", i);
         }
         len -= 9;
         goto out;

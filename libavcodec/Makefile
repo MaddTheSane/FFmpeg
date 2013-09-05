@@ -521,8 +521,8 @@ OBJS-$(CONFIG_ZMBV_ENCODER)            += zmbvenc.o
 # (AD)PCM decoders/encoders
 OBJS-$(CONFIG_PCM_ALAW_DECODER)           += pcm.o
 OBJS-$(CONFIG_PCM_ALAW_ENCODER)           += pcm.o
-OBJS-$(CONFIG_PCM_BLURAY_DECODER)         += pcm-mpeg.o
-OBJS-$(CONFIG_PCM_DVD_DECODER)            += pcm.o
+OBJS-$(CONFIG_PCM_BLURAY_DECODER)         += pcm-bluray.o
+OBJS-$(CONFIG_PCM_DVD_DECODER)            += pcm-dvd.o
 OBJS-$(CONFIG_PCM_F32BE_DECODER)          += pcm.o
 OBJS-$(CONFIG_PCM_F32BE_ENCODER)          += pcm.o
 OBJS-$(CONFIG_PCM_F32LE_DECODER)          += pcm.o
@@ -727,6 +727,7 @@ OBJS-$(CONFIG_LIBWAVPACK_ENCODER)         += libwavpackenc.o
 OBJS-$(CONFIG_LIBX264_ENCODER)            += libx264.o
 OBJS-$(CONFIG_LIBXAVS_ENCODER)            += libxavs.o
 OBJS-$(CONFIG_LIBXVID_ENCODER)            += libxvid.o
+OBJS-$(CONFIG_LIBZVBI_TELETEXT_DECODER)   += libzvbi-teletextdec.o
 
 # parsers
 OBJS-$(CONFIG_AAC_PARSER)              += aac_parser.o aac_ac3_parser.o \
