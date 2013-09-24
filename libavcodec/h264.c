@@ -4757,8 +4757,9 @@ static int decode_nal_units(H264Context *h, const uint8_t *buf, int buf_size,
                     first_slice = hx->nal_unit_type;
                 }
 
-            // FIXME do not discard SEI id
-            if (avctx->skip_frame >= AVDISCARD_NONREF && h->nal_ref_idc == 0)
+            if (avctx->skip_frame >= AVDISCARD_NONREF &&
+                h->nal_ref_idc == 0 &&
+                h->nal_unit_type != NAL_SEI)
                 continue;
 
 again:
@@ -4772,8 +4773,11 @@ again:
                 case NAL_DPA:
                 case NAL_DPB:
                 case NAL_DPC:
+                    av_log(h->avctx, AV_LOG_WARNING,
+                           "Ignoring NAL %d in global header/extradata\n",
+                           hx->nal_unit_type);
+                    // fall through to next case
                 case NAL_AUXILIARY_SLICE:
-                    av_log(h->avctx, AV_LOG_WARNING, "Ignoring NAL %d in global header/extradata\n", hx->nal_unit_type);
                     hx->nal_unit_type = NAL_FF_IGNORE;
                 }
             }

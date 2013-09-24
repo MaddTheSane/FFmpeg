@@ -692,11 +692,11 @@ static int avi_read_header(AVFormatContext *s)
                     if (st->codec->codec_tag == 0 && st->codec->height > 0 &&
                         st->codec->extradata_size < 1U << 30) {
                         st->codec->extradata_size += 9;
-                        st->codec->extradata       = av_realloc_f(st->codec->extradata,
-                                                                  1,
-                                                                  st->codec->extradata_size +
-                                                                  FF_INPUT_BUFFER_PADDING_SIZE);
-                        if (st->codec->extradata)
+                        if ((ret = av_reallocp(&st->codec->extradata,
+                                               st->codec->extradata_size +
+                                               FF_INPUT_BUFFER_PADDING_SIZE)) < 0)
+                            return ret;
+                        else
                             memcpy(st->codec->extradata + st->codec->extradata_size - 9,
                                    "BottomUp", 9);
                     }
@@ -987,7 +987,7 @@ static AVStream *get_subtitle_pkt(AVFormatContext *s, AVStream *next_st,
     return sub_st;
 }
 
-static int get_stream_idx(int *d)
+static int get_stream_idx(unsigned *d)
 {
     if (d[0] >= '0' && d[0] <= '9' &&
         d[1] >= '0' && d[1] <= '9') {
@@ -1487,7 +1487,9 @@ static int guess_ni_flag(AVFormatContext *s)
     avio_seek(s->pb, oldpos, SEEK_SET);
     if (last_start > first_end)
         return 1;
-    idx= av_mallocz(sizeof(*idx) * s->nb_streams);
+    idx= av_calloc(s->nb_streams, sizeof(*idx));
+    if (!idx)
+        return 0;
     for (min_pos=pos=0; min_pos!=INT64_MAX; pos= min_pos+1LU) {
         int64_t max_dts = INT64_MIN/2, min_dts= INT64_MAX/2;
         min_pos = INT64_MAX;

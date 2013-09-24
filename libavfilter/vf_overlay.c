@@ -30,7 +30,6 @@
 #include "libavutil/common.h"
 #include "libavutil/eval.h"
 #include "libavutil/avstring.h"
-#include "libavutil/opt.h"
 #include "libavutil/pixdesc.h"
 #include "libavutil/imgutils.h"
 #include "libavutil/mathematics.h"
@@ -310,6 +309,11 @@ static int config_input_overlay(AVFilterLink *inlink)
 static int config_output(AVFilterLink *outlink)
 {
     AVFilterContext *ctx = outlink->src;
+    OverlayContext *s = ctx->priv;
+    int ret;
+
+    if ((ret = ff_dualinput_init(ctx, &s->dinput)) < 0)
+        return ret;
 
     outlink->w = ctx->inputs[MAIN]->w;
     outlink->h = ctx->inputs[MAIN]->h;
@@ -601,7 +605,6 @@ static const AVFilterPad avfilter_vf_overlay_inputs[] = {
     {
         .name         = "main",
         .type         = AVMEDIA_TYPE_VIDEO,
-        .get_video_buffer = ff_null_get_video_buffer,
         .config_props = config_input_main,
         .filter_frame = filter_frame_main,
         .needs_writable = 1,
@@ -626,19 +629,15 @@ static const AVFilterPad avfilter_vf_overlay_outputs[] = {
 };
 
 AVFilter avfilter_vf_overlay = {
-    .name      = "overlay",
-    .description = NULL_IF_CONFIG_SMALL("Overlay a video source on top of the input."),
-
-    .init      = init,
-    .uninit    = uninit,
-
-    .priv_size = sizeof(OverlayContext),
-    .priv_class = &overlay_class,
-
+    .name          = "overlay",
+    .description   = NULL_IF_CONFIG_SMALL("Overlay a video source on top of the input."),
+    .init          = init,
+    .uninit        = uninit,
+    .priv_size     = sizeof(OverlayContext),
+    .priv_class    = &overlay_class,
     .query_formats = query_formats,
     .process_command = process_command,
-
-    .inputs    = avfilter_vf_overlay_inputs,
-    .outputs   = avfilter_vf_overlay_outputs,
-    .flags     = AVFILTER_FLAG_SUPPORT_TIMELINE_INTERNAL,
+    .inputs        = avfilter_vf_overlay_inputs,
+    .outputs       = avfilter_vf_overlay_outputs,
+    .flags         = AVFILTER_FLAG_SUPPORT_TIMELINE_INTERNAL,
 };

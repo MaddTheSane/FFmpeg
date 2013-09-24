@@ -105,6 +105,19 @@ static av_always_inline void decode_line(FFV1Context *s, int w,
     int run_mode  = 0;
     int run_index = s->run_index;
 
+    if (s->slice_coding_mode == 1) {
+        int i;
+        for (x = 0; x < w; x++) {
+            int v = 0;
+            for (i=0; i<bits; i++) {
+                uint8_t state = 128;
+                v += v + get_rac(c, &state);
+            }
+            sample[1][x] = v;
+        }
+        return;
+    }
+
     for (x = 0; x < w; x++) {
         int diff, context, sign;
 
@@ -233,10 +246,10 @@ static void decode_rgb_frame(FFV1Context *s, uint8_t *src[3], int w, int h, int 
 
             sample[p][1][-1]= sample[p][0][0  ];
             sample[p][0][ w]= sample[p][0][w-1];
-            if (lbd)
+            if (lbd && s->slice_coding_mode == 0)
                 decode_line(s, w, sample[p], (p + 1)/2, 9);
             else
-                decode_line(s, w, sample[p], (p + 1)/2, bits + 1);
+                decode_line(s, w, sample[p], (p + 1)/2, bits + (s->slice_coding_mode != 1));
         }
         for (x = 0; x < w; x++) {
             int g = sample[0][1][x];
@@ -244,11 +257,13 @@ static void decode_rgb_frame(FFV1Context *s, uint8_t *src[3], int w, int h, int 
             int r = sample[2][1][x];
             int a = sample[3][1][x];
 
-            b -= offset;
-            r -= offset;
-            g -= (b + r) >> 2;
-            b += g;
-            r += g;
+            if (s->slice_coding_mode != 1) {
+                b -= offset;
+                r -= offset;
+                g -= (b + r) >> 2;
+                b += g;
+                r += g;
+            }
 
             if (lbd)
                 *((uint32_t*)(src[0] + x*4 + stride[0]*y)) = b + (g<<8) + (r<<16) + (a<<24);
@@ -315,7 +330,10 @@ static int decode_slice_header(FFV1Context *f, FFV1Context *fs)
     }
     f->cur->sample_aspect_ratio.num = get_symbol(c, state, 0);
     f->cur->sample_aspect_ratio.den = get_symbol(c, state, 0);
-
+    if (fs->version > 3) {
+        fs->slice_reset_contexts = get_rac(c, state);
+        fs->slice_coding_mode = get_symbol(c, state, 0);
+    }
     return 0;
 }
 
@@ -373,7 +391,7 @@ static int decode_slice(AVCodecContext *c, void *arg)
     }
     if ((ret = ffv1_init_slice_state(f, fs)) < 0)
         return ret;
-    if (f->cur->key_frame)
+    if (f->cur->key_frame || fs->slice_reset_contexts)
         ffv1_clear_slice_state(f, fs);
 
     width  = fs->slice_width;
@@ -623,6 +641,7 @@ static int read_header(FFV1Context *f)
     }
 
     if (f->colorspace == 0) {
+        if (f->avctx->skip_alpha) f->transparency = 0;
         if (!f->transparency && !f->chroma_planes) {
             if (f->avctx->bits_per_raw_sample <= 8)
                 f->avctx->pix_fmt = AV_PIX_FMT_GRAY8;
@@ -636,47 +655,52 @@ static int read_header(FFV1Context *f)
             case 0x11: f->avctx->pix_fmt = AV_PIX_FMT_YUV420P; break;
             case 0x20: f->avctx->pix_fmt = AV_PIX_FMT_YUV411P; break;
             case 0x22: f->avctx->pix_fmt = AV_PIX_FMT_YUV410P; break;
-            default:
-                av_log(f->avctx, AV_LOG_ERROR, "format not supported\n");
-                return AVERROR(ENOSYS);
             }
         } else if (f->avctx->bits_per_raw_sample <= 8 && f->transparency) {
             switch(16*f->chroma_h_shift + f->chroma_v_shift) {
             case 0x00: f->avctx->pix_fmt = AV_PIX_FMT_YUVA444P; break;
             case 0x10: f->avctx->pix_fmt = AV_PIX_FMT_YUVA422P; break;
             case 0x11: f->avctx->pix_fmt = AV_PIX_FMT_YUVA420P; break;
-            default:
-                av_log(f->avctx, AV_LOG_ERROR, "format not supported\n");
-                return AVERROR(ENOSYS);
             }
-        } else if (f->avctx->bits_per_raw_sample == 9) {
+        } else if (f->avctx->bits_per_raw_sample == 9 && !f->transparency) {
             f->packed_at_lsb = 1;
             switch(16 * f->chroma_h_shift + f->chroma_v_shift) {
             case 0x00: f->avctx->pix_fmt = AV_PIX_FMT_YUV444P9; break;
             case 0x10: f->avctx->pix_fmt = AV_PIX_FMT_YUV422P9; break;
             case 0x11: f->avctx->pix_fmt = AV_PIX_FMT_YUV420P9; break;
-            default:
-                av_log(f->avctx, AV_LOG_ERROR, "format not supported\n");
-                return AVERROR(ENOSYS);
             }
-        } else if (f->avctx->bits_per_raw_sample == 10) {
+        } else if (f->avctx->bits_per_raw_sample == 9 && f->transparency) {
+            f->packed_at_lsb = 1;
+            switch(16 * f->chroma_h_shift + f->chroma_v_shift) {
+            case 0x00: f->avctx->pix_fmt = AV_PIX_FMT_YUVA444P9; break;
+            case 0x10: f->avctx->pix_fmt = AV_PIX_FMT_YUVA422P9; break;
+            case 0x11: f->avctx->pix_fmt = AV_PIX_FMT_YUVA420P9; break;
+            }
+        } else if (f->avctx->bits_per_raw_sample == 10 && !f->transparency) {
             f->packed_at_lsb = 1;
             switch(16 * f->chroma_h_shift + f->chroma_v_shift) {
             case 0x00: f->avctx->pix_fmt = AV_PIX_FMT_YUV444P10; break;
             case 0x10: f->avctx->pix_fmt = AV_PIX_FMT_YUV422P10; break;
             case 0x11: f->avctx->pix_fmt = AV_PIX_FMT_YUV420P10; break;
-            default:
-                av_log(f->avctx, AV_LOG_ERROR, "format not supported\n");
-                return AVERROR(ENOSYS);
             }
-        } else {
+        } else if (f->avctx->bits_per_raw_sample == 10 && f->transparency) {
+            f->packed_at_lsb = 1;
+            switch(16 * f->chroma_h_shift + f->chroma_v_shift) {
+            case 0x00: f->avctx->pix_fmt = AV_PIX_FMT_YUVA444P10; break;
+            case 0x10: f->avctx->pix_fmt = AV_PIX_FMT_YUVA422P10; break;
+            case 0x11: f->avctx->pix_fmt = AV_PIX_FMT_YUVA420P10; break;
+            }
+        } else if (f->avctx->bits_per_raw_sample == 16 && !f->transparency){
             switch(16 * f->chroma_h_shift + f->chroma_v_shift) {
             case 0x00: f->avctx->pix_fmt = AV_PIX_FMT_YUV444P16; break;
             case 0x10: f->avctx->pix_fmt = AV_PIX_FMT_YUV422P16; break;
             case 0x11: f->avctx->pix_fmt = AV_PIX_FMT_YUV420P16; break;
-            default:
-                av_log(f->avctx, AV_LOG_ERROR, "format not supported\n");
-                return AVERROR(ENOSYS);
+            }
+        } else if (f->avctx->bits_per_raw_sample == 16 && f->transparency){
+            switch(16 * f->chroma_h_shift + f->chroma_v_shift) {
+            case 0x00: f->avctx->pix_fmt = AV_PIX_FMT_YUVA444P16; break;
+            case 0x10: f->avctx->pix_fmt = AV_PIX_FMT_YUVA422P16; break;
+            case 0x11: f->avctx->pix_fmt = AV_PIX_FMT_YUVA420P16; break;
             }
         }
     } else if (f->colorspace == 1) {
@@ -698,6 +722,10 @@ static int read_header(FFV1Context *f)
         else                 f->avctx->pix_fmt = AV_PIX_FMT_0RGB32;
     } else {
         av_log(f->avctx, AV_LOG_ERROR, "colorspace not supported\n");
+        return AVERROR(ENOSYS);
+    }
+    if (f->avctx->pix_fmt == AV_PIX_FMT_NONE) {
+        av_log(f->avctx, AV_LOG_ERROR, "format not supported\n");
         return AVERROR(ENOSYS);
     }
 

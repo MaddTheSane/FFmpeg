@@ -1806,6 +1806,42 @@ const AVPixFmtDescriptor av_pix_fmt_descriptors[AV_PIX_FMT_NB] = {
         .name = "bayer_grbg16be",
         BAYER16_DESC_COMMON
     },
+    [AV_PIX_FMT_NV16] = {
+        .name = "nv16",
+        .nb_components = 3,
+        .log2_chroma_w = 1,
+        .log2_chroma_h = 0,
+        .comp = {
+            { 0, 0, 1, 0, 7 },        /* Y */
+            { 1, 1, 1, 0, 7 },        /* U */
+            { 1, 1, 2, 0, 7 },        /* V */
+        },
+        .flags = AV_PIX_FMT_FLAG_PLANAR,
+    },
+    [AV_PIX_FMT_NV20LE] = {
+        .name = "nv20le",
+        .nb_components = 3,
+        .log2_chroma_w = 1,
+        .log2_chroma_h = 0,
+        .comp = {
+            { 0, 1, 1, 0, 9 },        /* Y */
+            { 1, 3, 1, 0, 9 },        /* U */
+            { 1, 3, 3, 0, 9 },        /* V */
+        },
+        .flags = AV_PIX_FMT_FLAG_PLANAR,
+    },
+    [AV_PIX_FMT_NV20BE] = {
+        .name = "nv20be",
+        .nb_components = 3,
+        .log2_chroma_w = 1,
+        .log2_chroma_h = 0,
+        .comp = {
+            { 0, 1, 1, 0, 9 },        /* Y */
+            { 1, 3, 1, 0, 9 },        /* U */
+            { 1, 3, 3, 0, 9 },        /* V */
+        },
+        .flags = AV_PIX_FMT_FLAG_PLANAR | AV_PIX_FMT_FLAG_BE,
+    },
 };
 
 FF_DISABLE_DEPRECATION_WARNINGS
@@ -1986,9 +2022,9 @@ void ff_check_pixfmt_descriptors(void){
             } else {
                 av_assert0(8*(c->step_minus1+1) >= c->depth_minus1+1);
             }
-            av_read_image_line(tmp, (void*)data, linesize, d, 0, 0, j, 2, 0);
-            if (!memcmp(d->name, "bayer_", 6))
+            if (!strncmp(d->name, "bayer_", 6))
                 continue;
+            av_read_image_line(tmp, (void*)data, linesize, d, 0, 0, j, 2, 0);
             av_assert0(tmp[0] == 0 && tmp[1] == 0);
             tmp[0] = tmp[1] = (1<<(c->depth_minus1 + 1)) - 1;
             av_write_image_line(tmp, data, linesize, d, 0, 0, j, 2);

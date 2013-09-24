@@ -40,7 +40,8 @@
 #include "libavutil/pixfmt.h"
 #include "libavutil/rational.h"
 
-#include "libavcodec/version.h"
+#include "version.h"
+
 /**
  * @defgroup libavc Encoding/Decoding Library
  * @{
@@ -274,6 +275,7 @@ enum AVCodecID {
     AV_CODEC_ID_AIC,
     AV_CODEC_ID_ESCAPE130_DEPRECATED,
     AV_CODEC_ID_G2M_DEPRECATED,
+    AV_CODEC_ID_WEBP_DEPRECATED,
 
     AV_CODEC_ID_BRENDER_PIX= MKBETAG('B','P','I','X'),
     AV_CODEC_ID_Y41P       = MKBETAG('Y','4','1','P'),
@@ -2863,6 +2865,20 @@ typedef struct AVCodecContext {
 #define FF_SUB_CHARENC_MODE_AUTOMATIC    0  ///< libavcodec will select the mode itself
 #define FF_SUB_CHARENC_MODE_PRE_DECODER  1  ///< the AVPacket data needs to be recoded to UTF-8 before being fed to the decoder, requires iconv
 
+    /**
+     * Skip processing alpha if supported by codec.
+     * Note that if the format uses pre-multiplied alpha (common with VP6,
+     * and recommended due to better video quality/compression)
+     * the image will look as if alpha-blended onto a black background.
+     * However for formats that do not use pre-multiplied alpha
+     * there might be serious artefacts (though e.g. libswscale currently
+     * assumes pre-multiplied alpha anyway).
+     * Code outside libavcodec should access this field using AVOptions
+     *
+     * - decoding: set by user
+     * - encoding: unused
+     */
+    int skip_alpha;
 } AVCodecContext;
 
 AVRational av_codec_get_pkt_timebase         (const AVCodecContext *avctx);
@@ -4568,7 +4584,7 @@ int avcodec_get_pix_fmt_loss(enum AVPixelFormat dst_pix_fmt, enum AVPixelFormat 
  * @param[out] loss_ptr Combination of flags informing you what kind of losses will occur.
  * @return The best pixel format to convert to or -1 if none was found.
  */
-enum AVPixelFormat avcodec_find_best_pix_fmt_of_list(enum AVPixelFormat *pix_fmt_list,
+enum AVPixelFormat avcodec_find_best_pix_fmt_of_list(const enum AVPixelFormat *pix_fmt_list,
                                             enum AVPixelFormat src_pix_fmt,
                                             int has_alpha, int *loss_ptr);
 
@@ -4607,7 +4623,7 @@ enum AVPixelFormat avcodec_find_best_pix_fmt_of_2(enum AVPixelFormat dst_pix_fmt
 
 attribute_deprecated
 #if AV_HAVE_INCOMPATIBLE_LIBAV_ABI
-enum AVPixelFormat avcodec_find_best_pix_fmt2(enum AVPixelFormat *pix_fmt_list,
+enum AVPixelFormat avcodec_find_best_pix_fmt2(const enum AVPixelFormat *pix_fmt_list,
                                               enum AVPixelFormat src_pix_fmt,
                                               int has_alpha, int *loss_ptr);
 #else

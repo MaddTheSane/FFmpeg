@@ -5155,17 +5155,18 @@ static void vc1_decode_skip_blocks(VC1Context *v)
 {
     MpegEncContext *s = &v->s;
 
+    if (!v->s.last_picture.f.data[0])
+        return;
+
     ff_er_add_slice(&s->er, 0, s->start_mb_y, s->mb_width - 1, s->end_mb_y - 1, ER_MB_END);
     s->first_slice_line = 1;
     for (s->mb_y = s->start_mb_y; s->mb_y < s->end_mb_y; s->mb_y++) {
         s->mb_x = 0;
         init_block_index(v);
         ff_update_block_index(s);
-        if (s->last_picture.f.data[0]) {
-            memcpy(s->dest[0], s->last_picture.f.data[0] + s->mb_y * 16 * s->linesize,   s->linesize   * 16);
-            memcpy(s->dest[1], s->last_picture.f.data[1] + s->mb_y *  8 * s->uvlinesize, s->uvlinesize *  8);
-            memcpy(s->dest[2], s->last_picture.f.data[2] + s->mb_y *  8 * s->uvlinesize, s->uvlinesize *  8);
-        }
+        memcpy(s->dest[0], s->last_picture.f.data[0] + s->mb_y * 16 * s->linesize,   s->linesize   * 16);
+        memcpy(s->dest[1], s->last_picture.f.data[1] + s->mb_y *  8 * s->uvlinesize, s->uvlinesize *  8);
+        memcpy(s->dest[2], s->last_picture.f.data[2] + s->mb_y *  8 * s->uvlinesize, s->uvlinesize *  8);
         ff_mpeg_draw_horiz_band(s, s->mb_y * 16, 16);
         s->first_slice_line = 0;
     }
@@ -5533,13 +5534,25 @@ av_cold int ff_vc1_decode_init_alloc_tables(VC1Context *v)
 
     if (s->avctx->codec_id == AV_CODEC_ID_WMV3IMAGE || s->avctx->codec_id == AV_CODEC_ID_VC1IMAGE) {
         for (i = 0; i < 4; i++)
-            if (!(v->sr_rows[i >> 1][i & 1] = av_malloc(v->output_width))) return -1;
+            if (!(v->sr_rows[i >> 1][i & 1] = av_malloc(v->output_width)))
+                return AVERROR(ENOMEM);
     }
 
     if (!v->mv_type_mb_plane || !v->direct_mb_plane || !v->acpred_plane || !v->over_flags_plane ||
         !v->block || !v->cbp_base || !v->ttblk_base || !v->is_intra_base || !v->luma_mv_base ||
-        !v->mb_type_base)
-            return -1;
+        !v->mb_type_base) {
+        av_freep(&v->mv_type_mb_plane);
+        av_freep(&v->direct_mb_plane);
+        av_freep(&v->acpred_plane);
+        av_freep(&v->over_flags_plane);
+        av_freep(&v->block);
+        av_freep(&v->cbp_base);
+        av_freep(&v->ttblk_base);
+        av_freep(&v->is_intra_base);
+        av_freep(&v->luma_mv_base);
+        av_freep(&v->mb_type_base);
+        return AVERROR(ENOMEM);
+    }
 
     return 0;
 }
@@ -5568,6 +5581,7 @@ static av_cold int vc1_decode_init(AVCodecContext *avctx)
     VC1Context *v = avctx->priv_data;
     MpegEncContext *s = &v->s;
     GetBitContext gb;
+    int ret;
 
     /* save the container output size for WMImage */
     v->output_width  = avctx->width;
@@ -5584,13 +5598,13 @@ static av_cold int vc1_decode_init(AVCodecContext *avctx)
     avctx->flags |= CODEC_FLAG_EMU_EDGE;
     v->s.flags   |= CODEC_FLAG_EMU_EDGE;
 
-    if (ff_vc1_init_common(v) < 0)
-        return -1;
+    if ((ret = ff_vc1_init_common(v)) < 0)
+        return ret;
     // ensure static VLC tables are initialized
-    if (ff_msmpeg4_decode_init(avctx) < 0)
-        return -1;
-    if (ff_vc1_decode_init_alloc_tables(v) < 0)
-        return -1;
+    if ((ret = ff_msmpeg4_decode_init(avctx)) < 0)
+        return ret;
+    if ((ret = ff_vc1_decode_init_alloc_tables(v)) < 0)
+        return ret;
     // Hack to ensure the above functions will be called
     // again once we know all necessary settings.
     // That this is necessary might indicate a bug.
@@ -5609,8 +5623,8 @@ static av_cold int vc1_decode_init(AVCodecContext *avctx)
 
         init_get_bits(&gb, avctx->extradata, avctx->extradata_size*8);
 
-        if (ff_vc1_decode_sequence_header(avctx, v, &gb) < 0)
-          return -1;
+        if ((ret = ff_vc1_decode_sequence_header(avctx, v, &gb)) < 0)
+          return ret;
 
         count = avctx->extradata_size*8 - get_bits_count(&gb);
         if (count > 0) {
@@ -5644,16 +5658,16 @@ static av_cold int vc1_decode_init(AVCodecContext *avctx)
             init_get_bits(&gb, buf2, buf2_size * 8);
             switch (AV_RB32(start)) {
             case VC1_CODE_SEQHDR:
-                if (ff_vc1_decode_sequence_header(avctx, v, &gb) < 0) {
+                if ((ret = ff_vc1_decode_sequence_header(avctx, v, &gb)) < 0) {
                     av_free(buf2);
-                    return -1;
+                    return ret;
                 }
                 seq_initialized = 1;
                 break;
             case VC1_CODE_ENTRYPOINT:
-                if (ff_vc1_decode_entry_point(avctx, v, &gb) < 0) {
+                if ((ret = ff_vc1_decode_entry_point(avctx, v, &gb)) < 0) {
                     av_free(buf2);
-                    return -1;
+                    return ret;
                 }
                 ep_initialized = 1;
                 break;
@@ -5915,8 +5929,12 @@ static int vc1_decode_frame(AVCodecContext *avctx, void *data,
     }
 
     if (!s->context_initialized) {
-        if (ff_msmpeg4_decode_init(avctx) < 0 || ff_vc1_decode_init_alloc_tables(v) < 0)
+        if (ff_msmpeg4_decode_init(avctx) < 0)
             goto err;
+        if (ff_vc1_decode_init_alloc_tables(v) < 0) {
+            ff_MPV_common_end(s);
+            goto err;
+        }
 
         s->low_delay = !avctx->has_b_frames || v->res_sprite;
 
@@ -6056,7 +6074,6 @@ static int vc1_decode_frame(AVCodecContext *avctx, void *data,
     } else {
         int header_ret = 0;
 
-
         ff_mpeg_er_frame_start(s);
 
         v->bits = buf_size * 8;
@@ -6093,12 +6110,16 @@ static int vc1_decode_frame(AVCodecContext *avctx, void *data,
                 if (v->field_mode && i == n_slices1 + 2) {
                     if ((header_ret = ff_vc1_parse_frame_header_adv(v, &s->gb)) < 0) {
                         av_log(v->s.avctx, AV_LOG_ERROR, "Field header damaged\n");
+                        if (avctx->err_recognition & AV_EF_EXPLODE)
+                            goto err;
                         continue;
                     }
                 } else if (get_bits1(&s->gb)) {
                     v->pic_header_flag = 1;
                     if ((header_ret = ff_vc1_parse_frame_header_adv(v, &s->gb)) < 0) {
                         av_log(v->s.avctx, AV_LOG_ERROR, "Slice header damaged\n");
+                        if (avctx->err_recognition & AV_EF_EXPLODE)
+                            goto err;
                         continue;
                     }
                 }
