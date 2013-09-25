@@ -140,10 +140,10 @@ Component options:
   --disable-fft            disable FFT code
 
 Hardware accelerators:
-  --enable-dxva2           enable DXVA2 code
-  --enable-vaapi           enable VAAPI code
+  --disable-dxva2          disable DXVA2 code [autodetect]
+  --disable-vaapi          disable VAAPI code [autodetect]
   --enable-vda             enable VDA code
-  --enable-vdpau           enable VDPAU code
+  --disable-vdpau          disable VDPAU code [autodetect]
 
 Individual component options:
   --disable-everything     disable all components listed below
@@ -184,11 +184,11 @@ Individual component options:
 
 External library support:
   --enable-avisynth        enable reading of AVISynth script files [no]
-  --enable-bzlib           enable bzlib [autodetect]
+  --disable-bzlib          disable bzlib [autodetect]
   --enable-fontconfig      enable fontconfig
   --enable-frei0r          enable frei0r video filtering
   --enable-gnutls          enable gnutls [no]
-  --enable-iconv           enable iconv [autodetect]
+  --disable-iconv          disable iconv [autodetect]
   --enable-libaacplus      enable AAC+ encoding via libaacplus [no]
   --enable-libass          enable libass subtitles rendering [no]
   --enable-libbluray       enable BluRay reading using libbluray [no]
@@ -235,7 +235,7 @@ External library support:
   --enable-openal          enable OpenAL 1.1 capture support [no]
   --enable-openssl         enable openssl [no]
   --enable-x11grab         enable X11 grabbing [no]
-  --enable-zlib            enable zlib [autodetect]
+  --disable-zlib           disable zlib [autodetect]
 
 Advanced options (experts only):
   --cross-prefix=PREFIX    use PREFIX for compilation tools [$cross_prefix]
@@ -2169,8 +2169,8 @@ enable safe_bitstream_reader
 enable static
 enable swscale_alpha
 
-# By default, enable only those hwaccels that have no external dependencies.
-enable dxva2 vdpau
+# Enable hwaccels by default.
+enable dxva2 vaapi vdpau
 
 # build settings
 SHFLAGS='-shared -Wl,-soname,$$(@F)'
@@ -3876,7 +3876,6 @@ fi
 
 check_lib math.h sin -lm && LIBM="-lm"
 disabled crystalhd || check_lib libcrystalhd/libcrystalhd_if.h DtsCrystalHDVersion -lcrystalhd || disable crystalhd
-enabled vaapi && require vaapi va/va.h vaInitialize -lva
 
 atan2f_args=2
 ldexpf_args=2
@@ -4044,12 +4043,9 @@ require X11 X11/Xlib.h XOpenDisplay -lX11                 &&
 require Xext X11/extensions/XShm.h XShmCreateImage -lXext &&
 require Xfixes X11/extensions/Xfixes.h XFixesGetCursorImage -lXfixes
 
-if ! disabled vaapi; then
-    check_lib va/va.h vaInitialize -lva && {
-        check_cpp_condition va/va_version.h "VA_CHECK_VERSION(0,32,0)" ||
-        warn "Please upgrade to VA-API >= 0.32 if you would like full VA-API support.";
-    } || disable vaapi
-fi
+enabled vaapi &&
+    check_lib va/va.h vaInitialize -lva ||
+    disable vaapi
 
 enabled vdpau &&
     check_cpp_condition vdpau/vdpau.h "defined VDP_DECODER_PROFILE_MPEG4_PART2_ASP" ||

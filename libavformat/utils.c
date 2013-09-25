@@ -1457,6 +1457,9 @@ static int read_frame_internal(AVFormatContext *s, AVPacket *pkt)
             st->skip_to_keyframe = 0;
         if (st->skip_to_keyframe) {
             av_free_packet(&cur_pkt);
+            if (got_packet) {
+                *pkt = cur_pkt;
+            }
             got_packet = 0;
         }
     }
@@ -1859,14 +1862,16 @@ int64_t ff_gen_search(AVFormatContext *s, int stream_index, int64_t target_ts,
     }
 
     if(ts_max == AV_NOPTS_VALUE){
-        int step= 1024;
+        int64_t step= 1024;
+        int64_t limit;
         filesize = avio_size(s->pb);
         pos_max = filesize - 1;
         do{
+            limit = pos_max;
             pos_max = FFMAX(0, pos_max - step);
-            ts_max = ff_read_timestamp(s, stream_index, &pos_max, pos_max + step, read_timestamp);
+            ts_max = ff_read_timestamp(s, stream_index, &pos_max, limit, read_timestamp);
             step += step;
-        }while(ts_max == AV_NOPTS_VALUE && pos_max > 0);
+        }while(ts_max == AV_NOPTS_VALUE && 2*limit > step);
         if (ts_max == AV_NOPTS_VALUE)
             return -1;
 
