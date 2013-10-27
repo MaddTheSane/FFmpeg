@@ -28,7 +28,6 @@ libavcore/libavcore*
 libavdevice/libavdevice*
 libavfilter/libavfilter*
 libavformat/libavformat*
-libavutil/avconfig.h
 libavutil/libavutil*
 libpostproc/libpostproc*
 libswscale/libswscale*
@@ -52,4 +51,5 @@ tools/trasher*.d
 version.h
 *.DS_Store
 *.orig
+*.rej
 patched
