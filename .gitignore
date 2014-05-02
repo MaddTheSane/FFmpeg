@@ -81,3 +81,10 @@
 /tools/trasher
 /tools/seek_print
 /tools/zmqsend
+
+//Perian/OS X ignores
+**/.DS_Store
+**/*.orig
+**/*.rej
+patched
+
